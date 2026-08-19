@@ -461,6 +461,8 @@ defineExpose(
           </template>
         </SettingsRow>
       </SettingsCard>
+
+      <StrmFilesPanel />
     </template>
   </div>
 </template>
