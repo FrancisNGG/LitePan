@@ -81,6 +81,18 @@ func NewService(opts ServiceOptions) *Service {
 	if strmDir == "" {
 		strmDir = filepath.Join(filepath.Dir(filepath.Clean(opts.DataDir)), "strm")
 	}
+	// 设置项 strm_dir 优先（运行时可通过管理界面修改）
+	if opts.Settings != nil {
+		if v := strings.TrimSpace(opts.Settings.String(settings.KeyStrmDir)); v != "" {
+			strmDir = v
+		}
+	}
+	// 设置项 strm_dir 优先（运行时可通过管理界面修改）
+	if opts.Settings != nil {
+		if v := strings.TrimSpace(opts.Settings.String(settings.KeyStrmDir)); v != "" {
+			strmDir = v
+		}
+	}
 	return &Service{
 		repo:            opts.Repo,
 		branches:        opts.Branches,
