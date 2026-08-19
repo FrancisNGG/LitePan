@@ -50,6 +50,7 @@ type Server struct {
 	handler  *webdav.Handler
 	configs  domain.ConfigRepository
 	wc       *webdavCache
+	local    bool // 本地目录模式（配置了 webdav_root 时启用）
 }
 
 type webDAVHandlerError struct {
@@ -76,9 +77,19 @@ func New(d Deps) *Server {
 		tempRegistry: d.TempRegistry,
 		log:          log,
 	}
+	// 本地目录模式：配置了 webdav_root 时，/dav 直接暴露该本地目录（如 STRM 目录），供 Infuse 等客户端读取
+	var fsys webdav.FileSystem = fs
+	local := false
+	if d.Settings != nil {
+		if root := strings.TrimSpace(d.Settings.String(settings.KeyWebDAVRoot)); root != "" {
+			fsys = &localFileSystem{root: root}
+			local = true
+			log.Info("webdav 本地目录模式", "root", root)
+		}
+	}
 	h := &webdav.Handler{
 		Prefix:     mountPrefix,
-		FileSystem: fs,
+		FileSystem: fsys,
 		LockSystem: webdav.NewMemLS(),
 		Logger: func(r *http.Request, err error) {
 			if captured, ok := r.Context().Value(webDAVHandlerErrorKey{}).(*webDAVHandlerError); ok {
@@ -97,6 +108,7 @@ func New(d Deps) *Server {
 		handler:  h,
 		configs:  d.Configs,
 		wc:       wc,
+		local:    local,
 	}
 }
 
@@ -110,6 +122,11 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !s.authenticate(w, r) {
+		return
+	}
+	if s.local {
+		// 本地目录模式：跳过网盘专属逻辑，直接交给标准 webdav.Handler（本地文件系统）
+		s.handler.ServeHTTP(w, r)
 		return
 	}
 	if r.Method == http.MethodGet || r.Method == http.MethodHead {
