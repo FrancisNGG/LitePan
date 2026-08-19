@@ -766,3 +766,11 @@ func branchRelativePath(taskPath, branchPath string) string {
 	}
 	return ""
 }
+
+// StrmDir 返回当前 STRM 输出根目录（供管理界面展示/文件管理使用）。
+func (s *Service) StrmDir() string {
+	if s == nil {
+		return ""
+	}
+	return s.strmDir
+}
