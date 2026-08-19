@@ -2,7 +2,7 @@
 package drivers
 
 import (
-	_ "litepan/drivers/115"
+	// _ "litepan/drivers/115" // fork: 上游.gitignore排除该目录,115_Open已覆盖
 	_ "litepan/drivers/115_Open"
 	_ "litepan/drivers/123_Open"
 	_ "litepan/drivers/139Cloud"
