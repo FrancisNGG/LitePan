@@ -58,6 +58,8 @@ type Planner struct {
 	tmdbInterval      time.Duration
 	tmdbAvailable     bool
 	seasonFolderTpl   string
+	folderNameTpl     string
+	fileNameTpl       string
 	tvSeasonsCache    map[string][]map[string]any
 	recognition       recognition.Enhancer
 	deferred          []deferredGroup
@@ -170,6 +172,8 @@ func (p *Planner) loadSettings() {
 	if p.seasonFolderTpl == "" {
 		p.seasonFolderTpl = "Season {season:02d}"
 	}
+	p.folderNameTpl = strings.TrimSpace(p.cfg.FolderNameTemplate)
+	p.fileNameTpl = strings.TrimSpace(p.cfg.FileNameTemplate)
 }
 
 func extensionSetting(settings Settings, key, taskValue, fallback string) string {

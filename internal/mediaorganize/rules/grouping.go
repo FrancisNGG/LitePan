@@ -326,6 +326,20 @@ func BuildSeasonFolderName(season *int, template string) string {
 	return SanitizeFilename(out)
 }
 
+// BuildSeasonFolderNameTpl 用 pongo2/Jinja2 模板构建季目录名（支持 en_title/if/过滤器）。
+// tpl 为空时退回旧逻辑。
+func BuildSeasonFolderNameTpl(season *int, enTitle string, tpl string) string {
+	if strings.TrimSpace(tpl) == "" {
+		return BuildSeasonFolderName(season, tpl)
+	}
+	ctx := TemplateContext{Season: season, EnTitle: enTitle}
+	name, err := RenderTemplate(tpl, ctx)
+	if err != nil {
+		return ""
+	}
+	return SanitizeFilename(name)
+}
+
 func ResolveTMDBTVSeriesYear(showInfo map[string]any, seasons []map[string]any) *int {
 	if len(seasons) > 0 {
 		for _, item := range seasons {

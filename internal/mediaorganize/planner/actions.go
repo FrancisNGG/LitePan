@@ -50,7 +50,7 @@ func (p *Planner) resolveTargetParentForMove(workDirRef string, isTV bool, seaso
 		}
 		return cached, deps
 	}
-	seasonFolder := rules.BuildSeasonFolderName(season, p.seasonFolderTpl)
+	seasonFolder := rules.BuildSeasonFolderNameTpl(season, "", p.seasonFolderTpl)
 	seasonRef := p.ensureDirAction(workDirRef, seasonFolder)
 	for i := range p.actions {
 		a := &p.actions[i]
@@ -247,7 +247,7 @@ func (p *Planner) ensureSeasonDirRenameAction(
 	if !rules.IsSeasonDirName(sourceDirName) && !rules.IsSpecialContentDirName(sourceDirName) {
 		return nil
 	}
-	targetName := rules.BuildSeasonFolderName(season, p.seasonFolderTpl)
+	targetName := rules.BuildSeasonFolderNameTpl(season, "", p.seasonFolderTpl)
 	if targetName == "" {
 		return nil
 	}

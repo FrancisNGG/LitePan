@@ -45,6 +45,8 @@ type TaskConfig struct {
 	OverwriteExisting    bool
 	Recursive            bool
 	SeasonFolderTemplate string
+	FolderNameTemplate   string
+	FileNameTemplate     string
 	FileExtensions       string
 	MetadataExtensions   string
 }

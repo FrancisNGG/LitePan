@@ -137,7 +137,7 @@ func (p *Planner) planGroupWithMatch(
 		shortTitle = title
 	}
 	folderInfo := rules.ParsedMedia{Title: shortTitle, Year: year}
-	newFolderName := rules.SanitizeFilename(rules.BuildFolderName(folderInfo, tmdbID))
+	newFolderName := rules.SanitizeFilename(rules.BuildFolderNameTpl(folderInfo, tmdbOriginal, tmdbID, p.folderNameTpl))
 	displayTitle := rules.BuildDisplayTitle(tmdbTitle, tmdbOriginal, title)
 
 	groupDirMeta := map[string]any{"group_uid": groupUID}
@@ -316,7 +316,7 @@ func (p *Planner) planGroupWithMatch(
 			Season:  currentSeason,
 			Episode: currentEpisode,
 		}
-		base := rules.BuildTargetFilename(fileInfo, p.marker, tmdbID)
+		base := rules.BuildTargetFilenameTpl(fileInfo, tmdbOriginal, p.marker, tmdbID, p.fileNameTpl)
 		if base == "" {
 			p.skip(entry.item, "无法生成新名")
 			continue
@@ -460,7 +460,7 @@ func (p *Planner) seasonDirNeedsStandardization(entry batchEntry) bool {
 	if !rules.IsSeasonDirName(entry.sourceDirName) && !rules.IsSpecialContentDirName(entry.sourceDirName) {
 		return false
 	}
-	targetName := rules.BuildSeasonFolderName(entry.fileParsed.Season, p.seasonFolderTpl)
+	targetName := rules.BuildSeasonFolderNameTpl(entry.fileParsed.Season, "", p.seasonFolderTpl)
 	return targetName != "" && !rules.IsSameGeneratedName(entry.sourceDirName, targetName)
 }
 

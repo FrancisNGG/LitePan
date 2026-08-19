@@ -26,25 +26,38 @@ func IsSameGeneratedName(currentName, generatedName string) bool {
 	return strings.TrimSpace(currentName) == strings.TrimSpace(generatedName)
 }
 
+// BuildFolderName 用旧逻辑构建文件夹名：Title (Year) {tmdb-xxx}
 func BuildFolderName(parsed ParsedMedia, tmdbID string) string {
 	title := strings.TrimSpace(parsed.Title)
 	if title == "" {
 		return ""
 	}
-	tag := ""
-	if tmdbID != "" {
-		tag = fmt.Sprintf("{tmdb-%s}", tmdbID)
-	}
 	parts := []string{title}
 	if parsed.Year != nil {
 		parts = append(parts, fmt.Sprintf("(%d)", *parsed.Year))
 	}
-	if tag != "" {
-		parts = append(parts, tag)
+	if tmdbID != "" {
+		parts = append(parts, fmt.Sprintf("{tmdb-%s}", tmdbID))
 	}
 	return strings.TrimSpace(strings.Join(parts, " "))
 }
 
+// BuildFolderNameTpl 用 pongo2/Jinja2 模板构建文件夹名（支持 en_title/if/过滤器）
+// tpl 为空时退回默认行为。返回空串表示模板渲染失败或结果为空。
+func BuildFolderNameTpl(parsed ParsedMedia, enTitle, tmdbID, tpl string) string {
+	if strings.TrimSpace(tpl) == "" {
+		return BuildFolderName(parsed, tmdbID)
+	}
+	ctx := TemplateContext{}
+	ctx.FromParsedMedia(parsed, enTitle, tmdbID)
+	name, err := RenderTemplate(tpl, ctx)
+	if err != nil {
+		return ""
+	}
+	return name
+}
+
+// BuildTargetFilename 用旧逻辑构建目标文件名：Title (Year) [marker] SxxExx
 func BuildTargetFilename(parsed ParsedMedia, marker, tmdbID string) string {
 	title := strings.TrimSpace(parsed.Title)
 	if title == "" {
@@ -54,7 +67,6 @@ func BuildTargetFilename(parsed ParsedMedia, marker, tmdbID string) string {
 	if parsed.Year != nil {
 		parts = append(parts, fmt.Sprintf("(%d)", *parsed.Year))
 	}
-
 	tag := ""
 	if !IsMarkerOff(marker) {
 		switch strings.TrimSpace(marker) {
@@ -71,13 +83,26 @@ func BuildTargetFilename(parsed ParsedMedia, marker, tmdbID string) string {
 	if tag != "" {
 		parts = append(parts, tag)
 	}
-
 	season := asFirstInt(parsed.Season)
 	episode := asFirstInt(parsed.Episode)
 	if season != nil && episode != nil {
 		parts = append(parts, fmt.Sprintf("S%02dE%02d", *season, *episode))
 	}
 	return strings.Join(parts, " ")
+}
+
+// BuildTargetFilenameTpl 用 pongo2/Jinja2 模板构建目标文件名（支持 en_title/if/过滤器）
+func BuildTargetFilenameTpl(parsed ParsedMedia, enTitle, marker, tmdbID, tpl string) string {
+	if strings.TrimSpace(tpl) == "" {
+		return BuildTargetFilename(parsed, marker, tmdbID)
+	}
+	ctx := TemplateContext{}
+	ctx.FromParsedMedia(parsed, enTitle, tmdbID)
+	name, err := RenderTemplate(tpl, ctx)
+	if err != nil {
+		return ""
+	}
+	return name
 }
 
 func BuildDisplayTitle(tmdbTitle, tmdbOriginal, fallbackTitle string) string {

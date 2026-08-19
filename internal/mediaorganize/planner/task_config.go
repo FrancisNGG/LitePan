@@ -21,6 +21,8 @@ func TaskConfigFromMap(cfg map[string]any) TaskConfig {
 		OverwriteExisting:    rules.SettingBool(cfg["overwrite_existing"], false),
 		Recursive:            rules.SettingBool(cfg["recursive"], false),
 		SeasonFolderTemplate: strings.TrimSpace(strMap(cfg, "season_folder_template")),
+		FolderNameTemplate:   strings.TrimSpace(strMap(cfg, "folder_name_template")),
+		FileNameTemplate:     strings.TrimSpace(strMap(cfg, "file_name_template")),
 		FileExtensions:       strings.TrimSpace(strMap(cfg, "file_extensions")),
 		MetadataExtensions:   strings.TrimSpace(strMap(cfg, "metadata_extensions")),
 	}
