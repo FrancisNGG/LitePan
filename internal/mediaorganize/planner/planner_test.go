@@ -1173,11 +1173,12 @@ func TestMovePlanSkipsAlreadyOrganizedTVFileWhenTargetExists(t *testing.T) {
 			{ID: "show", Name: "钢铁森林 (2026) {tmdb-281392}", IsDir: true},
 			{ID: "target", Name: "整理目标", IsDir: true},
 		},
-		"show":           {{ID: "season1", Name: "Season 01", IsDir: true}},
-		"season1":        {{ID: "ep01", Name: filename}},
-		"target":         {{ID: "target_show", Name: "钢铁森林 (2026) {tmdb-281392}", IsDir: true}},
-		"target_show":    {{ID: "target_season1", Name: "Season 01", IsDir: true}},
-		"target_season1": {{ID: "existing_ep01", Name: filename}},
+		"show":            {{ID: "season1", Name: "Season 01", IsDir: true}},
+		"season1":         {{ID: "ep01", Name: filename}},
+		"target":          {{ID: "target_tv", Name: "电视剧", IsDir: true}},
+		"target_tv":       {{ID: "target_show", Name: "钢铁森林 (2026) {tmdb-281392}", IsDir: true}},
+		"target_show":     {{ID: "target_season1", Name: "Season 01", IsDir: true}},
+		"target_season1":  {{ID: "existing_ep01", Name: filename}},
 	}}
 	p := planner.New(
 		context.Background(),
@@ -1237,7 +1238,8 @@ func TestMovePlanMarksOverwriteTargetWhenTargetExists(t *testing.T) {
 		},
 		"show":           {{ID: "season1", Name: "Season 01", IsDir: true}},
 		"season1":        {{ID: "ep01", Name: filename}},
-		"target":         {{ID: "target_show", Name: "钢铁森林 (2026) {tmdb-281392}", IsDir: true}},
+		"target":         {{ID: "target_tv", Name: "电视剧", IsDir: true}},
+		"target_tv":      {{ID: "target_show", Name: "钢铁森林 (2026) {tmdb-281392}", IsDir: true}},
 		"target_show":    {{ID: "target_season1", Name: "Season 01", IsDir: true}},
 		"target_season1": {{ID: "existing_ep01", Name: filename}},
 	}}

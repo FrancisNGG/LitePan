@@ -50,7 +50,7 @@ func (p *Planner) resolveTargetParentForMove(workDirRef string, isTV bool, seaso
 		}
 		return cached, deps
 	}
-	seasonFolder := rules.BuildSeasonFolderNameTpl(season, "", p.seasonFolderTpl)
+	seasonFolder := p.seasonFolderName(season)
 	seasonRef := p.ensureDirAction(workDirRef, seasonFolder)
 	for i := range p.actions {
 		a := &p.actions[i]
@@ -70,15 +70,28 @@ func (p *Planner) resolveTargetParentForMove(workDirRef string, isTV bool, seaso
 	return seasonRef, deps
 }
 
-func (p *Planner) ensureWorkDirAction(key groupKey, workDirName string, items []batchEntry, promotedMoveRef string) string {
+func (p *Planner) ensureWorkDirAction(key groupKey, workDirName string, items []batchEntry, promotedMoveRef string, categoryName string, isTV bool) string {
 	if p.actionType != "move" || workDirName == "" {
 		return ""
 	}
 	if promotedMoveRef != "" {
 		return promotedMoveRef
 	}
-	categoryAncestors := p.categoryAncestors(key, items)
-	parentRef := p.buildTargetCategoryParentRef(categoryAncestors)
+	// MoviePilot 一级类型目录（get_dest_dir：need_type_folder 且未手动指定媒体类型时）
+	// 媒体库根/电影/... 或 媒体库根/电视剧/...
+	parentRef := p.targetRootID
+	if parentRef == "" {
+		parentRef = p.parentID
+	}
+	typeFolder := "电影"
+	if isTV {
+		typeFolder = "电视剧"
+	}
+	parentRef = p.ensureDirAction(parentRef, typeFolder)
+	// MoviePilot 二级分类目录（category.yaml 匹配结果，如 华语电影/国产剧）
+	if strings.TrimSpace(categoryName) != "" {
+		parentRef = p.ensureDirAction(parentRef, categoryName)
+	}
 	ref := p.ensureDirAction(parentRef, workDirName)
 	srcDirID := key.dirID
 	if strings.HasPrefix(ref, "ref:") {
@@ -247,7 +260,7 @@ func (p *Planner) ensureSeasonDirRenameAction(
 	if !rules.IsSeasonDirName(sourceDirName) && !rules.IsSpecialContentDirName(sourceDirName) {
 		return nil
 	}
-	targetName := rules.BuildSeasonFolderNameTpl(season, "", p.seasonFolderTpl)
+	targetName := p.seasonFolderName(season)
 	if targetName == "" {
 		return nil
 	}

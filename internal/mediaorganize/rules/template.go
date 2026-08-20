@@ -20,13 +20,17 @@ type TemplateContext struct {
 	VideoCodec    string
 	AudioCodec    string
 	AudioChannels string
+	AudioEffect   string // Atmos 等音频特效
+	VideoBit      string // 色深，如 10bit（MoviePilot: video_bit）
 	Source        string // 来源，如 BluRay / WEB-DL
 	ReleaseGroup  string
 	Edition       string
+	WebSource     string // 流媒体平台，如 Netflix（MoviePilot: web_source）
 	Type          string // movie / tv
 	TMDBID        string
 	Part          string // 分集/Part 信息（MoviePilot: part）
 	FileExt       string // 文件扩展名，如 .mkv（MoviePilot: fileExt）
+	OriginalName  string // 原文件名（MoviePilot: original_name）
 }
 
 // seasonEpisode 生成 MoviePilot 风格的 season_episode（如 S01E02）
@@ -49,33 +53,73 @@ func intOrNil(p *int) any {
 }
 
 func (c TemplateContext) toPongo2Context() pongo2.Context {
-	return pongo2.Context{
+	// en_title 去重：与标题相同，或标题已包含英文名（如 displayTitle 拼好的“疯狂动物城2 - Zootopia 2”）时置空
+	enTitle := c.EnTitle
+	if enTitle != "" {
+		t := strings.TrimSpace(c.Title)
+		e := strings.TrimSpace(enTitle)
+		if t == "" || strings.EqualFold(e, t) {
+			enTitle = ""
+		} else if len(e) >= 2 && strings.Contains(strings.ToLower(t), strings.ToLower(e)) {
+			enTitle = ""
+		}
+	}
+	// MoviePilot 语义：videoCodec = 编码 + 色深（如 H265 10bit）；audioCodec = 编码 + 声道 + 特效（如 AAC 2.0 / DDP 5.1 Atmos）
+	videoCodec := c.VideoCodec
+	if videoCodec != "" && c.VideoBit != "" {
+		videoCodec = videoCodec + " " + c.VideoBit
+	}
+	audioCodec := c.AudioCodec
+	if audioCodec != "" && c.AudioChannels != "" {
+		audioCodec = audioCodec + " " + c.AudioChannels
+	}
+	if audioCodec != "" && c.AudioEffect != "" {
+		audioCodec = audioCodec + " " + c.AudioEffect
+	}
+	ctx := pongo2.Context{
 		// MoviePilot 兼容变量名（可直接复制 MoviePilot 模板）
 		"title":           c.Title,
-		"original_title":  c.EnTitle,
-		"originalTitle":   c.EnTitle,
+		"name":            c.Title,
+		"original_title":  enTitle,
+		"originalTitle":   enTitle,
+		"en_title":        enTitle,
+		"en_name":         enTitle,
+		"original_name":   c.OriginalName,
 		"year":            intOrNil(c.Year),
 		"season":          intOrNil(c.Season),
 		"episode":         intOrNil(c.Episode),
 		"season_episode":  c.seasonEpisode(),
+		"season_fmt":      c.seasonEpisode(),
 		"videoFormat":     c.ScreenSize,
+		"videoCodec":      videoCodec,
+		"audioCodec":      audioCodec,
+		"audioChannels":   c.AudioChannels,
+		"videoBit":        c.VideoBit,
+		"video_bit":       c.VideoBit,
+		"releaseGroup":    c.ReleaseGroup,
+		"resourceType":    c.Source,
+		"webSource":       c.WebSource,
+		"effect":          c.Edition,
+		"edition":         c.Edition,
+		"resource_term":   c.Source,
+		"fps":             strings.TrimSuffix(c.FrameRate, "fps"),
+		"fps_text":        c.FrameRate,
 		"fileExt":         c.FileExt,
 		"part":            c.Part,
-		"edition":         c.Edition,
 		"tmdbid":          c.TMDBID,
 		"tmdb_id":         c.TMDBID,
 		// LitePan 原有变量名（向后兼容）
-		"en_title":       c.EnTitle,
 		"quality":        c.ScreenSize,
 		"screen_size":    c.ScreenSize,
 		"frame_rate":     c.FrameRate,
-		"video_codec":    c.VideoCodec,
-		"audio_codec":    c.AudioCodec,
+		"video_codec":    videoCodec,
+		"audio_codec":    audioCodec,
 		"audio_channels": c.AudioChannels,
 		"source":         c.Source,
 		"release_group":  c.ReleaseGroup,
 		"type":           c.Type,
 	}
+	return ctx
 }
 
 // FromParsedMedia 从 ParsedMedia + 附加信息构建模板上下文
@@ -90,9 +134,12 @@ func (c *TemplateContext) FromParsedMedia(p ParsedMedia, enTitle, tmdbID string)
 	c.VideoCodec = p.VideoCodec
 	c.AudioCodec = p.AudioCodec
 	c.AudioChannels = p.AudioChannels
+	c.VideoBit = p.VideoBit
+	c.AudioEffect = p.AudioEffect
 	c.Source = p.Source
 	c.ReleaseGroup = p.ReleaseGroup
 	c.Edition = p.Edition
+	c.WebSource = p.WebSource
 	c.Type = p.Type
 	c.TMDBID = tmdbID
 }
@@ -106,6 +153,23 @@ var jinjaBlockRe = regexp.MustCompile(`\{\{.*?\}\}|\{%.*?%\}`)
 // jinjaFilterCallRe 匹配 Jinja2 括号形式过滤器：|default('x') 或 |default("x")
 // pongo2 只支持冒号形式 |default:'x'，需转换以兼容 MoviePilot 模板
 var jinjaFilterCallRe = regexp.MustCompile(`\|([a-zA-Z_][a-zA-Z0-9_]*)\(([^)]*)\)`)
+
+// jinjaMethodCallRe 匹配 Jinja2 方法调用语法：var.lower() / var.strip() 等
+// MoviePilot 用 Python Jinja2 支持方法调用；pongo2 不支持，需转成过滤器
+var jinjaMethodCallRe = regexp.MustCompile(`([a-zA-Z_][a-zA-Z0-9_]*)\.(lower|upper|title|capitalize|strip|lstrip|rstrip|trim)\(\)`)
+
+// methodCallToFilter 把 Jinja2 方法调用转成 pongo2 过滤器：original_name.lower() -> original_name|lower
+func methodCallToFilter(m string) string {
+	parts := jinjaMethodCallRe.FindStringSubmatch(m)
+	if len(parts) != 3 {
+		return m
+	}
+	f := parts[2]
+	if f == "strip" || f == "lstrip" || f == "rstrip" {
+		f = "trim"
+	}
+	return parts[1] + "|" + f
+}
 
 // jinjaOrRe 匹配 Jinja2 的 or 表达式：{{ a or b or '默认' }}
 // pongo2 的 or 返回布尔值而非第一个真值，需转换为 if/elif/else
@@ -174,6 +238,8 @@ func normalizeTemplate(tpl string) string {
 	for i, b := range blocks {
 		tpl = strings.ReplaceAll(tpl, ph+fmt.Sprintf("%d", i)+ph, b)
 	}
+	// 3.5 Jinja2 方法调用转过滤器：original_name.lower() -> original_name|lower
+	tpl = jinjaMethodCallRe.ReplaceAllStringFunc(tpl, methodCallToFilter)
 	// 4. |default('x') -> |default:'x'  (Jinja2 -> pongo2)
 	tpl = jinjaFilterCallRe.ReplaceAllString(tpl, `|$1:$2`)
 	// 5. {{ a or b or 'x' }} -> {% if a %}...{% endif %}  (Jinja2 or -> pongo2 兼容)

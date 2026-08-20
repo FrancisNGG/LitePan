@@ -10,9 +10,12 @@ type ParsedMedia struct {
 	VideoCodec    string
 	AudioCodec    string
 	AudioChannels string
+	AudioEffect   string // 音频特效，如 Atmos（MoviePilot: 并入 audio_encode 尾部）
+	VideoBit      string // 色深，如 10bit（MoviePilot: video_bit）
 	Source        string
 	ReleaseGroup  string
 	Edition       string
+	WebSource     string // 流媒体平台，如 Netflix（MoviePilot: web_source）
 	Type          string
 }
 
@@ -65,9 +68,12 @@ func parsedFromMap(m map[string]any) ParsedMedia {
 		VideoCodec:    strVal(m["video_codec"]),
 		AudioCodec:    strVal(m["audio_codec"]),
 		AudioChannels: strVal(m["audio_channels"]),
+		AudioEffect:   strVal(m["audio_effect"]),
+		VideoBit:      strVal(m["video_bit"]),
 		Source:        strVal(m["source"]),
 		ReleaseGroup:  strVal(m["release_group"]),
 		Edition:       strVal(m["edition"]),
+		WebSource:     strVal(m["web_source"]),
 		Type:          strVal(m["type"]),
 	}
 	out.Year = asFirstInt(m["year"])
@@ -105,6 +111,12 @@ func (p ParsedMedia) ToMap() map[string]any {
 	if p.AudioChannels != "" {
 		m["audio_channels"] = p.AudioChannels
 	}
+	if p.AudioEffect != "" {
+		m["audio_effect"] = p.AudioEffect
+	}
+	if p.VideoBit != "" {
+		m["video_bit"] = p.VideoBit
+	}
 	if p.Source != "" {
 		m["source"] = p.Source
 	}
@@ -113,6 +125,9 @@ func (p ParsedMedia) ToMap() map[string]any {
 	}
 	if p.Edition != "" {
 		m["edition"] = p.Edition
+	}
+	if p.WebSource != "" {
+		m["web_source"] = p.WebSource
 	}
 	if p.Type != "" {
 		m["type"] = p.Type

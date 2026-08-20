@@ -100,6 +100,10 @@ export interface MediaOrganizeSettings {
   align_media_tags: boolean;
   max_works_per_run: number;
   overwrite_existing: boolean;
+  movie_naming_format: string;
+  tv_naming_format: string;
+  category_map: string;
+  release_groups: string;
 }
 
 export type MediaOrganizeTaskInput = {
@@ -233,16 +237,16 @@ export function saveMediaOrganizeSettings(settings: Partial<MediaOrganizeSetting
 }
 
 export interface MediaOrganizeTemplateTestResult {
-  season_folder: string;
-  folder_name: string;
-  file_name: string;
+  full_path: string;
+  is_tv: boolean;
+  category: string;
   parsed?: Record<string, unknown>;
 }
 
 export function testMediaOrganizeTemplates(payload: {
-  season_folder_template?: string;
-  folder_name_template?: string;
-  file_name_template?: string;
+  movie_naming_template?: string;
+  tv_naming_template?: string;
+  filename?: string;
 }): Promise<MediaOrganizeTemplateTestResult> {
   return http.post<MediaOrganizeTemplateTestResult>("/admin/media-organize/test-template", payload);
 }

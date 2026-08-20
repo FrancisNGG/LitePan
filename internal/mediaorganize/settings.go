@@ -24,6 +24,10 @@ var moSettingFieldToKey = map[string]string{
 	"metadata_extensions":      settings.KeyMOMetadataExtensions,
 	"media_tag_order":          settings.KeyMOMediaTagOrder,
 	"align_media_tags":         settings.KeyMOAlignMediaTags,
+	"movie_naming_format":      settings.KeyMOMovieNamingFormat,
+	"tv_naming_format":         settings.KeyMOTVNamingFormat,
+	"category_map":             settings.KeyMOCategoryMap,
+	"release_groups":           settings.KeyMOReleaseGroups,
 	"max_works_per_run":        settings.KeyMOMaxWorksPerRun,
 	"overwrite_existing":       settings.KeyMOOverwriteExisting,
 }

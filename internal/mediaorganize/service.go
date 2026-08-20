@@ -71,6 +71,9 @@ func NewService(opts ServiceOptions) *Service {
 	if e == nil {
 		e = StubExecutor{}
 	}
+	if opts.Settings != nil {
+		rules.SetUserReleaseGroups(splitCommaList(stringFromAny(SettingsDict(opts.Settings)["release_groups"])))
+	}
 	return &Service{
 		repo:            opts.Repo,
 		files:           opts.Files,
@@ -888,6 +891,18 @@ func buildProxyURL(settingsDict map[string]any) string {
 	})
 }
 
+// splitCommaList 逗号分隔字符串 -> 去空白切片（用于用户自定义制作组）
+func splitCommaList(raw string) []string {
+	var out []string
+	for _, part := range strings.Split(raw, ",") {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			out = append(out, part)
+		}
+	}
+	return out
+}
+
 func stringFromAny(v any) string {
 	if v == nil {
 		return ""
@@ -915,8 +930,13 @@ func intFromAny(v any, fallback int) int {
 	return fallback
 }
 
-// RenderTestTemplates 用示例媒体数据渲染三个整理模板（Jinja2/pongo2），供前端测试。
-func (s *Service) RenderTestTemplates(seasonFolderTpl, folderNameTpl, fileNameTpl string) (map[string]any, error) {
+// RenderTestTemplates 渲染 MoviePilot 式命名模板（Jinja2/pongo2），供前端测试。
+// 直接复用「命名模板（MoviePilot）」设置里的电影/电视剧模板，无需额外参数。
+// filename 非空时：先本地解析文件名，再真实查询 TMDB（电影+剧集），
+// 用 TMDB 元数据决定媒体类型与分类，避免仅靠文件名误判（如无季标记的韩剧）；
+// TMDB 不可用/未配置时回退本地解析，为空时用示例媒体数据（沙丘 S01E05）。
+func (s *Service) RenderTestTemplates(movieNamingTpl, tvNamingTpl, filename string) (map[string]any, error) {
+	rules.SetUserReleaseGroups(splitCommaList(stringFromAny(SettingsDict(s.settings)["release_groups"])))
 	// 示例媒体：一部电视剧的一集，覆盖主要变量
 	year := 2024
 	season := 1
@@ -936,13 +956,49 @@ func (s *Service) RenderTestTemplates(seasonFolderTpl, folderNameTpl, fileNameTp
 		Edition:       "",
 		Type:          "tv",
 	}
-	const enTitle = "Dune"
-	const tmdbID = "438631"
+	enTitle := "Dune"
+	tmdbID := "438631"
+
+	isTV := true
+	var tmdbRaw map[string]any
+	if strings.TrimSpace(filename) != "" {
+		parsed = rules.NormalizeParsedMedia(rules.ParseFilenameStrict(filename))
+		isTV = parsed.Season != nil || parsed.Type == "tv" || parsed.Type == "episode"
+		// 真实查询 TMDB：优先剧集（文件名无季标记时也按 TMDB 判断），其次电影
+		if raw, tv, ok := s.searchTMDBForTest(filename, parsed); ok {
+			isTV = tv
+			tmdbRaw = raw
+			mediaType := "movie"
+			if tv {
+				mediaType = "tv"
+			}
+			if id, tTitle, tOriginal, tYear := rules.ExtractTMDBDisplayFields(raw, mediaType); tTitle != "" {
+				tmdbID = id
+				enTitle = tOriginal
+				if enTitle == "" {
+					enTitle = tTitle
+				}
+				if tYear != nil {
+					parsed.Year = tYear
+				}
+				parsed.Title = tTitle
+				if tv {
+					if tvTitle := stringFromAny(raw["name"]); tvTitle != "" {
+						parsed.Title = tvTitle
+					}
+				}
+			}
+		}
+	}
 
 	ctx := rules.TemplateContext{}
 	ctx.FromParsedMedia(parsed, enTitle, tmdbID)
+	ctx.OriginalName = filename
 
 	render := func(tpl string) string {
+		if strings.TrimSpace(tpl) == "" {
+			return ""
+		}
 		out, err := rules.RenderTemplate(tpl, ctx)
 		if err != nil {
 			return "⚠️ " + err.Error()
@@ -950,10 +1006,117 @@ func (s *Service) RenderTestTemplates(seasonFolderTpl, folderNameTpl, fileNameTp
 		return out
 	}
 
+	tpl := movieNamingTpl
+	if isTV {
+		tpl = tvNamingTpl
+	}
+
+	category := ""
+	{
+		catMap := stringFromAny(SettingsDict(s.settings)["category_map"])
+		catRules := rules.ParseCategoryRules(catMap)
+		if tmdbRaw != nil {
+			// 用真实 TMDB 元数据匹配分类（如韩剧 original_language=ko → 日韩剧）
+			category = catRules.MatchCategory(isTV, tmdbRaw)
+		} else {
+			sample := map[string]any{
+				"original_language": "zh",
+				"origin_country":    []any{"CN"},
+				"genre_ids":         []any{878, 28, 12},
+				"release_date":      "2019-02-05",
+			}
+			if isTV {
+				sample = map[string]any{
+					"original_language": "en",
+					"origin_country":    []any{"US"},
+					"genre_ids":         []any{10765, 10759},
+					"first_air_date":    "2024-11-17",
+				}
+			}
+			category = catRules.MatchCategory(isTV, sample)
+		}
+	}
+
 	return map[string]any{
-		"season_folder": render(seasonFolderTpl),
-		"folder_name":   render(folderNameTpl),
-		"file_name":     render(fileNameTpl),
-		"parsed":        parsed.ToMap(),
+		"full_path": render(tpl),
+		"is_tv":     isTV,
+		"category":  category,
+		"tmdb_raw":  tmdbRaw,
+		"parsed":    parsed.ToMap(),
 	}, nil
+}
+
+// searchTMDBForTest 用文件名解析出的标题查询 TMDB，返回 (原始数据, 是否剧集, 是否成功)。
+// 优先搜剧集（避免无季标记的剧被当电影），再搜电影；未配置 API Key 或查询失败返回 false。
+func (s *Service) searchTMDBForTest(filename string, parsed rules.ParsedMedia) (map[string]any, bool, bool) {
+	merged := SettingsDict(s.settings)
+	apiKey := strings.TrimSpace(stringFromAny(merged["tmdb_api_key"]))
+	if apiKey == "" {
+		return nil, false, false
+	}
+	language := stringFromAny(merged["tmdb_language"])
+	if language == "" {
+		language = "zh-CN"
+	}
+	client := tmdb.NewClient(tmdb.Options{
+		APIKey:   apiKey,
+		Language: language,
+		ProxyURL: buildProxyURL(merged),
+	})
+	title := strings.TrimSpace(parsed.Title)
+	if title == "" {
+		title = strings.TrimSpace(filename)
+	}
+	if title == "" {
+		return nil, false, false
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+
+	if results, err := client.Search(ctx, title, nil, "tv"); err == nil && len(results) > 0 {
+		if raw := pickBestTMDBResult(results, title); raw != nil {
+			return raw, true, true
+		}
+	}
+	if results, err := client.Search(ctx, title, nil, "movie"); err == nil && len(results) > 0 {
+		if raw := pickBestTMDBResult(results, title); raw != nil {
+			return raw, false, true
+		}
+	}
+	return nil, false, false
+}
+
+// pickBestTMDBResult 从 TMDB 搜索结果里选最佳条目：
+// 优先标题精确匹配；其次"基础标题是搜索词前缀"（如 name=请回答1988 ⊂ 搜索词=请回答1988 응답하라，
+// 命中正剧而非"十周年"衍生条目）；再次"搜索词是结果名前缀"（衍生条目）；最后取第一条。
+func pickBestTMDBResult(results []json.RawMessage, title string) map[string]any {
+	title = strings.ToLower(strings.TrimSpace(title))
+	basePrefix := -1
+	for i, r := range results {
+		raw := rules.RawJSONToMap(r)
+		if raw == nil {
+			continue
+		}
+		name := strings.ToLower(strings.TrimSpace(stringFromAny(raw["name"])))
+		if name == "" {
+			name = strings.ToLower(strings.TrimSpace(stringFromAny(raw["title"])))
+		}
+		// 英文/原名也参与精确匹配（zh-CN 语言下 name 是中文，如“大力水手”，搜索词可能是英文 Popeye）
+		originalName := strings.ToLower(strings.TrimSpace(stringFromAny(raw["original_name"])))
+		if originalName == "" {
+			originalName = strings.ToLower(strings.TrimSpace(stringFromAny(raw["original_title"])))
+		}
+		if name == title || (originalName != "" && originalName == title) {
+			return raw
+		}
+		// 搜索词以结果名开头（如搜“请回答1988 응답하라 1988”命中“请回答1988”）——正剧而非衍生条目
+		if basePrefix < 0 && strings.HasPrefix(title, name) && name != "" {
+			basePrefix = i
+		}
+	}
+	if basePrefix >= 0 {
+		return rules.RawJSONToMap(results[basePrefix])
+	}
+	// 无精确/正剧匹配时不选（避免衍生条目如“Popeye Untold”被误选中），让上层继续搜另一种媒体类型
+	return nil
 }

@@ -518,16 +518,16 @@ func defaultString(val, fallback string) string {
 }
 
 type testTemplateRequest struct {
-	SeasonFolderTemplate string `json:"season_folder_template"`
-	FolderNameTemplate   string `json:"folder_name_template"`
-	FileNameTemplate     string `json:"file_name_template"`
+	MovieNamingTemplate string `json:"movie_naming_template"`
+	TvNamingTemplate    string `json:"tv_naming_template"`
+	Filename            string `json:"filename"`
 }
 
 type testTemplateResult struct {
-	SeasonFolder string `json:"season_folder"`
-	FolderName   string `json:"folder_name"`
-	FileName     string `json:"file_name"`
-	Parsed       any    `json:"parsed"`
+	FullPath string `json:"full_path"`
+	IsTV     bool   `json:"is_tv"`
+	Category string `json:"category"`
+	Parsed   any    `json:"parsed"`
 }
 
 // testMediaOrganizeTemplate 用示例媒体数据渲染三个整理模板，供前端测试 Jinja2 语法。
@@ -542,7 +542,7 @@ func (h *Handler) testMediaOrganizeTemplate(w http.ResponseWriter, r *http.Reque
 			return
 		}
 	}
-	result, err := h.mediaOrganize.RenderTestTemplates(in.SeasonFolderTemplate, in.FolderNameTemplate, in.FileNameTemplate)
+	result, err := h.mediaOrganize.RenderTestTemplates(in.MovieNamingTemplate, in.TvNamingTemplate, in.Filename)
 	if err != nil {
 		writeErr(w, err)
 		return

@@ -236,7 +236,19 @@ func TestApplyMovesMetadataFollowers(t *testing.T) {
 		}
 	}
 	underTarget := false
+	// 类型目录（电影）应建在 trg 下
+	movieDir := ""
 	for _, item := range fs.dirs["trg"] {
+		if item.Name == "电影" && item.IsDir {
+			movieDir = item.ID
+			break
+		}
+	}
+	if movieDir == "" {
+		t.Fatalf("type dir 电影 should be created under trg, trg=%v", fs.dirs["trg"])
+	}
+	// work dir 应移到 trg/电影/ 下
+	for _, item := range fs.dirs[movieDir] {
 		if item.ID == "src" {
 			underTarget = true
 			if !strings.Contains(item.Name, "白日梦想家") {
@@ -245,7 +257,7 @@ func TestApplyMovesMetadataFollowers(t *testing.T) {
 		}
 	}
 	if !underTarget {
-		t.Fatalf("work dir should be moved under trg, trg=%v root=%v", fs.dirs["trg"], fs.dirs["root"])
+		t.Fatalf("work dir should be moved under trg/电影, movieDir=%v root=%v", fs.dirs[movieDir], fs.dirs["root"])
 	}
 }
 

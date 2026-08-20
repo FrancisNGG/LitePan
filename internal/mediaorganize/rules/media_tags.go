@@ -38,8 +38,12 @@ func EnrichMediaTagsFromFilename(name string, m map[string]any) {
 	mergeScannedScreenSize(m, scanned.screenSize)
 	mergeScannedString(m, "frame_rate", scanned.frameRate)
 	mergeScannedString(m, "video_codec", scanned.videoCodec)
+	mergeScannedString(m, "video_bit", scanned.videoBit)
 	mergeScannedAudioCodec(m, scanned.audioCodec)
 	mergeScannedString(m, "audio_channels", scanned.audioChannels)
+	mergeScannedString(m, "audio_effect", scanned.audioEffect)
+	mergeScannedString(m, "web_source", scanned.webSource)
+	mergeScannedString(m, "edition", scanned.effect)
 }
 
 func mergeScannedScreenSize(m map[string]any, scanned string) {
@@ -115,6 +119,12 @@ func audioCodecRank(codec string) int {
 func enrichParsedMediaTags(name string, p ParsedMedia) ParsedMedia {
 	m := p.ToMap()
 	EnrichMediaTagsFromFilename(name, m)
+	// 统一视频编码形态（guessit/本地扫描可能给出 H.265/HEVC/x265 等不同写法）
+	if raw, ok := m["video_codec"].(string); ok && raw != "" {
+		if norm := NormalizeVideoCodec(raw); norm != "" {
+			m["video_codec"] = norm
+		}
+	}
 	return parsedFromMap(m)
 }
 
@@ -135,6 +145,10 @@ type mediaTagScanResult struct {
 	videoCodec    string
 	audioCodec    string
 	audioChannels string
+	audioEffect   string // Atmos 等音频特效
+	videoBit      string
+	webSource     string // 流媒体平台（NF->Netflix 等）
+	effect        string // 视频特效（HDR10+/DoVi/Dolby Vision 等，MoviePilot: resource_effect）
 }
 
 func scanMediaTagsFromStem(stem string) mediaTagScanResult {
@@ -164,6 +178,14 @@ func scanMediaTagsFromStem(stem string) mediaTagScanResult {
 			if out.videoCodec == "" {
 				out.videoCodec = value
 			}
+		case "video_bit":
+			if out.videoBit == "" {
+				out.videoBit = value
+			}
+		case "effect":
+			if out.effect == "" {
+				out.effect = value
+			}
 		case "audio_codec":
 			if rank > audioRank {
 				audioRank = rank
@@ -175,7 +197,482 @@ func scanMediaTagsFromStem(stem string) mediaTagScanResult {
 			}
 		}
 	}
+	// Atmos 等音频特效（qualityTokenRe 已含 Atmos，但 classifyAudioCodecToken 会忽略）
+	if out.audioEffect == "" {
+		if m := atmosTokenRe.FindStringSubmatch(scanText); len(m) >= 2 {
+			out.audioEffect = "Atmos"
+		}
+	}
+	// 流媒体平台（MoviePilot: 平台简称出现在 WEB-DL/WEBRip 附近才记）
+	if out.webSource == "" {
+		out.webSource = detectStreamingPlatform(scanText)
+	}
 	return out
+}
+
+// atmosTokenRe 匹配 Atmos / Dolby Atmos 音频特效
+var atmosTokenRe = regexp.MustCompile(`(?i)(?:^|[^A-Za-z0-9])(?:Dolby[. ]?)?(Atmos)(?:$|[^A-Za-z0-9])`)
+
+// streamingPlatforms 流媒体平台简称表（MoviePilot streamingplatform.py 常用项）
+var streamingPlatforms = map[string]string{
+		"10Play": "10Play",
+		"3SAT": "3sat",
+		"3sat": "3sat",
+		"7PLUS": "7plus",
+		"7plus": "7plus",
+		"9NOW": "9Now",
+		"9Now": "9Now",
+		"A&E": "A&E",
+		"A3P": "Atresplayer",
+		"ABMA": "Abema",
+		"AE": "A&E",
+		"AHA": "aha",
+		"ALL4": "Channel 4",
+		"AMC": "AMC",
+		"AMZN": "Amazon",
+		"ANPL": "Animal Planet",
+		"AO": "AnimeOnegai",
+		"AOD": "Anime on Demand",
+		"APPS": "Disney+ MENA",
+		"ARD": "ARD",
+		"ARGP": "Argo",
+		"ARTE": "Arte",
+		"AS": "Adult Swim",
+		"ATVP": "Apple TV+",
+		"Abema": "Abema",
+		"AbemaTV": "Abema",
+		"Adult Swim": "Adult Swim",
+		"Amazon": "Amazon",
+		"Animal Planet": "Animal Planet",
+		"Anime on Demand": "Anime on Demand",
+		"AnimeOnegai": "AnimeOnegai",
+		"Apple TV+": "Apple TV+",
+		"Argo": "Argo",
+		"Arte": "Arte",
+		"Atresplayer": "Atresplayer",
+		"B-Global": "B-Global",
+		"BBC": "BBC",
+		"BBC iPlayer": "BBC iPlayer",
+		"BCH": "Bandai Channel",
+		"BCORE": "Bravia Core",
+		"BG": "B-Global",
+		"BK": "Bentkey",
+		"BNGE": "Binge",
+		"BOOM": "Boomerang",
+		"BRAV": "BravoTV",
+		"BRTB": "Brtb TV",
+		"BYU": "BYUtv",
+		"BYUtv": "BYUtv",
+		"Bandai Channel": "Bandai Channel",
+		"Bentkey": "Bentkey",
+		"Binge": "Binge",
+		"Boomerang": "Boomerang",
+		"Bravia Core": "Bravia Core",
+		"BravoTV": "BravoTV",
+		"BritBox": "BritBox",
+		"Brtb TV": "Brtb TV",
+		"C More": "C More",
+		"CATCHPLAY": "CATCHPLAY+",
+		"CATCHPLAY+": "CATCHPLAY+",
+		"CBC": "CBC Gem",
+		"CBC Gem": "CBC Gem",
+		"CBS": "CBS",
+		"CC": "Comedy Central",
+		"CLBI": "Club illico",
+		"CMAX": "Cinemax",
+		"CMOR": "C More",
+		"CNBC": "CNBC",
+		"CNLP": "Canal+",
+		"CNN+": "CNN+",
+		"CNNP": "CNN+",
+		"COOK": "Cooking Channel",
+		"CPE": "Cineplex Entertainment",
+		"CPP": "CATCHPLAY+",
+		"CR": "Crunchyroll",
+		"CRAV": "Crave",
+		"CRIT": "Criterion Channel",
+		"CRKL": "Crackle",
+		"CTHP": "CATCHPLAY+",
+		"CTV": "CTV",
+		"CUR": "Curiosity Stream",
+		"CW": "The CW",
+		"CW Seed": "CW Seed",
+		"CWS": "CW Seed",
+		"Canal+": "Canal+",
+		"Channel 4": "Channel 4",
+		"Channel 5": "Channel 5",
+		"Cinemax": "Cinemax",
+		"Cineplex Entertainment": "Cineplex Entertainment",
+		"Cineverse": "Cineverse",
+		"Club illico": "Club illico",
+		"Comedy Central": "Comedy Central",
+		"Cooking Channel": "Cooking Channel",
+		"Crackle": "Crackle",
+		"Crave": "Crave",
+		"Criterion Channel": "Criterion Channel",
+		"Crunchyroll": "Crunchyroll",
+		"Curiosity Stream": "Curiosity Stream",
+		"DANET": "DANET",
+		"DANT": "DANET",
+		"DC Universe": "DC Universe",
+		"DCU": "DC Universe",
+		"DDY": "Digiturk Dilediğin Yerde",
+		"DEST": "Destination America",
+		"DISC": "Discovery Channel",
+		"DLWP": "DailyWire+",
+		"DMM": "DMM",
+		"DPLY": "dplay",
+		"DRPO": "Dropout",
+		"DSCP": "Discovery+",
+		"DSNP": "Disney+",
+		"DSNY": "Disney Networks",
+		"DW": "DailyWire+",
+		"DailyWire+": "DailyWire+",
+		"Dekkoo": "Dekkoo",
+		"Destination America": "Destination America",
+		"Digiturk Dilediğin Yerde": "Digiturk Dilediğin Yerde",
+		"Discovery Channel": "Discovery Channel",
+		"Discovery Velocity": "Discovery Velocity",
+		"Discovery+": "Discovery+",
+		"Disney Networks": "Disney Networks",
+		"Disney+": "Disney+",
+		"Disney+ MENA": "Disney+ MENA",
+		"Dropout": "Dropout",
+		"E!": "E!",
+		"EPIX": "EPIX MGM+",
+		"EPIX MGM+": "EPIX MGM+",
+		"ESQ": "Esquire",
+		"ETV": "E!",
+		"Esquire": "Esquire",
+		"FAA": "Filmarchiv Austria",
+		"FANDOR": "fandor",
+		"FAWESOME": "Fawesome",
+		"FBWatch": "Facebook Watch",
+		"FILMIN": "Filmin",
+		"FILMINGO": "filmingo",
+		"FILMZIE": "Filmzie",
+		"FOOD": "Food Network",
+		"FPT": "FPT Play",
+		"FPT Play": "FPT Play",
+		"FPTP": "FPT Play",
+		"FREE": "Freeform",
+		"FTV": "France.tv",
+		"FUBO": "fuboTV",
+		"FUNi": "Funimation",
+		"FXTL": "Foxtel Now",
+		"FYI": "FYI Network",
+		"FYI Network": "FYI Network",
+		"Facebook Watch": "Facebook Watch",
+		"Fawesome": "Fawesome",
+		"Filmarchiv Austria": "Filmarchiv Austria",
+		"Filmin": "Filmin",
+		"Filmzie": "Filmzie",
+		"FlixLatino": "FlixLatino",
+		"FlixOlé": "FlixOlé",
+		"Flixole": "FlixOlé",
+		"Food Network": "Food Network",
+		"Foxtel Now": "Foxtel Now",
+		"France.tv": "France.tv",
+		"Freeform": "Freeform",
+		"Funimation": "Funimation",
+		"GAIA": "Gaia",
+		"GLBO": "Globoplay",
+		"GLOB": "GloboSat Play",
+		"GO90": "go90",
+		"Gaga": "GagaOOLala",
+		"GagaOOLala": "GagaOOLala",
+		"Gaia": "Gaia",
+		"GloboSat Play": "GloboSat Play",
+		"Globoplay": "Globoplay",
+		"Go3": "Go3",
+		"Google Play": "Google Play",
+		"HBO": "HBO",
+		"HBO GO": "HBO GO",
+		"HBOGO": "HBO GO",
+		"HGTV": "HGTV",
+		"HIDI": "HIDIVE",
+		"HIDIVE": "HIDIVE",
+		"HIST": "History Channel",
+		"HLMK": "Hallmark",
+		"HMAX": "Max",
+		"HPLAY": "Hungama Play",
+		"HS": "Hotstar",
+		"HULU": "Hulu Networks",
+		"Hallmark": "Hallmark",
+		"Hami": "Hami Video",
+		"Hami Video": "Hami Video",
+		"HamiVideo": "Hami Video",
+		"History Channel": "History Channel",
+		"HoiChoi": "Hoichoi",
+		"Hoichoi": "Hoichoi",
+		"Hotstar": "Hotstar",
+		"Hulu Networks": "Hulu Networks",
+		"HuluJP": "Hulu Networks",
+		"Hungama Play": "Hungama Play",
+		"ITV": "ITV",
+		"ITVX": "ITV",
+		"IVI": "Ivi",
+		"Ici TOU.TV": "Ici TOU.TV",
+		"IndieFlix": "IndieFlix",
+		"Ivi": "Ivi",
+		"JC": "JioCinema",
+		"JONU": "Jonu Play",
+		"JOYN": "Joyn",
+		"JioCinema": "JioCinema",
+		"Jonu Play": "Jonu Play",
+		"Joyn": "Joyn",
+		"KKTV": "KKTV",
+		"KLASSIKI": "Klassiki",
+		"KNOW": "Knowledge Network",
+		"KNPY": "Kanopy",
+		"KS": "Kaleidescape",
+		"Kaleidescape": "Kaleidescape",
+		"Kanopy": "Kanopy",
+		"Klassiki": "Klassiki",
+		"Knowledge Network": "Knowledge Network",
+		"LACINETEK": "LaCinetek",
+		"LFTL": "Laftel",
+		"LFTLNET": "Laftel",
+		"LGP": "Lionsgate Play",
+		"LIFE": "Lifetime",
+		"LINE TV": "LINE TV",
+		"LINETV": "LINE TV",
+		"LN": "Love Nature",
+		"LOCIPO": "LOCIPO",
+		"LaCinetek": "LaCinetek",
+		"Laftel": "Laftel",
+		"Lemino": "Lemino",
+		"LiTV": "LiTV",
+		"Lifetime": "Lifetime",
+		"Lionsgate Play": "Lionsgate Play",
+		"Love Nature": "Love Nature",
+		"MA": "Movies Anywhere",
+		"MBC": "MBC",
+		"MBS": "MBS",
+		"MMAX": "ManoramaMAX",
+		"MNBC": "MSNBC",
+		"MP": "Movistar Plus+",
+		"MS": "Microsoft Store",
+		"MSNBC": "MSNBC",
+		"MTOD": "Motor Trend OnDemand",
+		"MUBI": "Mubi",
+		"MW": "meWATCH",
+		"MY5": "Channel 5",
+		"ManoramaMAX": "ManoramaMAX",
+		"Max": "Max",
+		"Maxdome": "Maxdome",
+		"Microsoft Store": "Microsoft Store",
+		"Mitele": "Mitele",
+		"Motor Trend OnDemand": "Motor Trend OnDemand",
+		"Movies Anywhere": "Movies Anywhere",
+		"Movistar Plus+": "Movistar Plus+",
+		"Mubi": "Mubi",
+		"MyTVS": "MyTVSuper",
+		"MyTVSuper": "MyTVSuper",
+		"MyVideo": "MyVideo",
+		"NATG": "National Geographic",
+		"NBLA": "Nebula",
+		"NF": "Netflix",
+		"NICK": "Nickelodeon",
+		"NOW": "Now",
+		"NYMEY": "Nymey",
+		"National Geographic": "National Geographic",
+		"Nebula": "Nebula",
+		"Netflix": "Netflix",
+		"Nickelodeon": "Nickelodeon",
+		"Now": "Now",
+		"Now E": "Now E",
+		"NowE": "Now E",
+		"NowPlayer": "NowPlayer",
+		"Nymey": "Nymey",
+		"ODK": "OnDemandKorea",
+		"OKKO": "Okko",
+		"OSN": "OSN+",
+		"OSN+": "OSN+",
+		"OV": "OceanVeil",
+		"OVID": "OVID",
+		"OXGN": "Oxygen",
+		"OceanVeil": "OceanVeil",
+		"Okko": "Okko",
+		"OnDemandKorea": "OnDemandKorea",
+		"Oxygen": "Oxygen",
+		"PBS": "PBS",
+		"PBS KIDS": "PBS KIDS",
+		"PBSK": "PBS KIDS",
+		"PCOK": "Peacock",
+		"PLAY": "Google Play",
+		"PLEX": "Plex",
+		"PMNT": "Paramount Network",
+		"PMTP": "Paramount+",
+		"POGO": "PokerGO",
+		"PSN": "PlayStation Network",
+		"PUHU": "puhutv",
+		"Paramount Network": "Paramount Network",
+		"Paramount+": "Paramount+",
+		"Peacock": "Peacock",
+		"PlayStation Network": "PlayStation Network",
+		"Plex": "Plex",
+		"Pluto TV": "Pluto TV",
+		"PlutoTV": "Pluto TV",
+		"PokerGO": "PokerGO",
+		"QIBI": "Quibi",
+		"Quibi": "Quibi",
+		"REVEEL": "Reveel",
+		"RKTN": "Rakuten TV",
+		"ROKU": "Roku",
+		"RTE": "RTÉ",
+		"RTL": "RTL+",
+		"RTL+": "RTL+",
+		"RTÉ": "RTÉ",
+		"RUNTIME": "Runtime",
+		"Rakuten TV": "Rakuten TV",
+		"Rakuten Viki": "Rakuten Viki",
+		"Reveel": "Reveel",
+		"Roku": "Roku",
+		"Runtime": "Runtime",
+		"SAINA": "Saina Play",
+		"SAMANSA": "SAMANSA",
+		"SBS": "SBS",
+		"SESO": "Seeso",
+		"SF": "SF Anytime",
+		"SF Anytime": "SF Anytime",
+		"SHAHID": "Shahid",
+		"SHDR": "Shudder",
+		"SHO": "Showtime",
+		"SKST": "SkyShowtime",
+		"SMNS": "SAMANSA",
+		"SNXT": "Sun NXT",
+		"SP": "Saina Play",
+		"SPIK": "Spike",
+		"SS": "Simply South",
+		"STAN": "Stan",
+		"STARZ": "STARZ",
+		"STRP": "Star+",
+		"STZ": "STARZ",
+		"SVT": "Sveriges Television",
+		"SYFY": "SyFy",
+		"Saina Play": "Saina Play",
+		"Seeso": "Seeso",
+		"Shahid": "Shahid",
+		"Showtime": "Showtime",
+		"Shudder": "Shudder",
+		"Simply South": "Simply South",
+		"SkyShowtime": "SkyShowtime",
+		"Spike": "Spike",
+		"Stan": "Stan",
+		"Star+": "Star+",
+		"Sun NXT": "Sun NXT",
+		"Sveriges Television": "Sveriges Television",
+		"SyFy": "SyFy",
+		"TCM": "TCM",
+		"TEN": "10Play",
+		"TENK": "Tënk",
+		"TIMV": "TIMvision",
+		"TIMvision": "TIMvision",
+		"TK": "Tentkotta",
+		"TLC": "TLC",
+		"TNT": "TNT",
+		"TOU": "Ici TOU.TV",
+		"TROMA": "Troma",
+		"TRVL": "Travel Channel",
+		"TUBI": "TubiTV",
+		"TV 2": "TV 2",
+		"TV Land": "TV Land",
+		"TV2": "TV 2",
+		"TV4": "TV4",
+		"TVER": "TVer",
+		"TVING": "TVING",
+		"TVL": "TV Land",
+		"TVNZ": "TVNZ",
+		"TVO": "tvo",
+		"TVer": "TVer",
+		"Tentkotta": "Tentkotta",
+		"The CW": "The CW",
+		"Travel Channel": "Travel Channel",
+		"Troma": "Troma",
+		"TubiTV": "TubiTV",
+		"Tënk": "Tënk",
+		"U-NEXT": "U-NEXT",
+		"UKTV": "UKTV",
+		"UNXT": "U-NEXT",
+		"USA Network": "USA Network",
+		"USAN": "USA Network",
+		"VH1": "VH1",
+		"VIAP": "Viaplay",
+		"VICE": "Viceland",
+		"VIDIO": "Vidio",
+		"VIKI": "Rakuten Viki",
+		"VIU": "Viu",
+		"VLCT": "Discovery Velocity",
+		"VMAX": "vivamax",
+		"VMEO": "Vimeo",
+		"VMJ": "VideoMarket",
+		"VOYO": "Voyo",
+		"VRV": "VRV Defunct",
+		"VRV Defunct": "VRV Defunct",
+		"ViX": "ViX",
+		"Viaplay": "Viaplay",
+		"Viceland": "Viceland",
+		"VideoMarket": "VideoMarket",
+		"Vidio": "Vidio",
+		"Vimeo": "Vimeo",
+		"Viu": "Viu",
+		"Voyo": "Voyo",
+		"WAKA": "Wakanim",
+		"WAKANIM": "Wakanim",
+		"WATCH IT": "WATCH IT",
+		"WAVO": "WAVO",
+		"WAVVE": "Wavve",
+		"WOW": "WOW",
+		"WOW Presents Plus": "WOW Presents Plus",
+		"WOWP": "WOW Presents Plus",
+		"WTCH": "Watcha",
+		"WWE Network": "WWE Network",
+		"WWEN": "WWE Network",
+		"Wakanim": "Wakanim",
+		"Watcha": "Watcha",
+		"WatchiT": "WATCH IT",
+		"Wavve": "Wavve",
+		"WeTV": "WeTV",
+		"YT": "YouTube",
+		"YouTube": "YouTube",
+		"ZDF": "ZDF",
+		"ZEE5": "ZEE5",
+		"aha": "aha",
+		"dTV": "dTV",
+		"dplay": "dplay",
+		"fandor": "fandor",
+		"filmingo": "filmingo",
+		"friDay": "friDay",
+		"fuboTV": "fuboTV",
+		"go90": "go90",
+		"iP": "BBC iPlayer",
+		"iT": "iTunes",
+		"iTunes": "iTunes",
+		"meWATCH": "meWATCH",
+		"ofiii": "ofiii",
+		"puhutv": "puhutv",
+		"tvo": "tvo",
+		"vivamax": "vivamax",
+}
+
+// detectStreamingPlatform 扫描文本中的流媒体平台简称；仅在文本含 WEB 相关字样时返回（MoviePilot 语义）
+func detectStreamingPlatform(text string) string {
+	upper := strings.ToUpper(text)
+	hasWeb := strings.Contains(upper, "WEB-DL") || strings.Contains(upper, "WEBDL") ||
+		strings.Contains(upper, "WEBRIP") || strings.Contains(upper, "WEB.RIP") ||
+		strings.Contains(upper, "WEB.DL")
+	if !hasWeb {
+		return ""
+	}
+	for abbr, name := range streamingPlatforms {
+		// 平台简称作为独立 token 匹配（前后非字母数字）
+		re := regexp.MustCompile(`(?i)(?:^|[^A-Za-z0-9])` + regexp.QuoteMeta(abbr) + `(?:$|[^A-Za-z0-9])`)
+		if re.MatchString(text) {
+			return name
+		}
+	}
+	return ""
 }
 
 func expandStemForTagScan(stem string) string {
@@ -245,6 +742,12 @@ func classifyQualityToken(raw string) (field, value string, rank int) {
 		return "frame_rate", normalizeFrameRate(strings.TrimSuffix(strings.ToLower(token), "fps")), 0
 	}
 
+	if bit := classifyVideoBitToken(token); bit != "" {
+		return "video_bit", bit, 0
+	}
+	if eff := classifyEffectToken(token); eff != "" {
+		return "effect", eff, 0
+	}
 	if size, r := classifyScreenSizeToken(token); size != "" {
 		return "screen_size", size, r
 	}
@@ -288,12 +791,52 @@ func classifyChannelToken(token string) string {
 	return ""
 }
 
+// classifyEffectToken 识别视频特效（MoviePilot: resource_effect，如 HDR10+/DoVi）
+func classifyEffectToken(token string) string {
+	norm := strings.ToLower(strings.TrimSpace(token))
+	norm = strings.ReplaceAll(norm, " ", "")
+	switch norm {
+	case "hdr10+", "hdr10plus":
+		return "HDR10+"
+	case "hdr10", "hdr10p":
+		return "HDR10"
+	case "hdr":
+		return "HDR"
+	case "dolbyvision", "dovi", "dv":
+		return "DoVi"
+	case "sdr":
+		return "SDR"
+	case "hlg":
+		return "HLG"
+	case "3d":
+		return "3D"
+	default:
+		return ""
+	}
+}
+
+func classifyVideoBitToken(token string) string {
+	norm := strings.ToLower(strings.TrimSpace(token))
+	norm = strings.ReplaceAll(norm, " ", "")
+	switch norm {
+	case "10bit", "10-bit":
+		return "10bit"
+	case "8bit", "8-bit":
+		return "8bit"
+	case "12bit", "12-bit":
+		return "12bit"
+	default:
+		return ""
+	}
+}
+
 func classifyVideoCodecToken(token string) string {
-	switch strings.ToLower(strings.TrimSpace(token)) {
-	case "h.264", "h264", "x264", "avc":
-		return "H.264"
-	case "h.265", "h265", "x265", "hevc":
-		return "H.265"
+	// 归一化：HEVC/H265/H.265 -> x265；AVC/H264/H.264 -> x264（统一形态，避免同编码多种写法导致重复文件）
+	switch strings.ToLower(strings.ReplaceAll(strings.TrimSpace(token), ".", "")) {
+	case "h265", "hevc", "x265":
+		return "x265"
+	case "h264", "avc", "x264":
+		return "x264"
 	case "av1":
 		return "AV1"
 	case "vp9":
@@ -301,6 +844,11 @@ func classifyVideoCodecToken(token string) string {
 	default:
 		return ""
 	}
+}
+
+// NormalizeVideoCodec 统一视频编码形态（guessit 等外部来源可能给 H.265/HEVC 等写法）
+func NormalizeVideoCodec(codec string) string {
+	return classifyVideoCodecToken(codec)
 }
 
 func classifyAudioCodecToken(token string) (string, int) {
@@ -337,6 +885,18 @@ func classifyAudioCodecToken(token string) (string, int) {
 		return "", 0
 	default:
 		return "", 0
+	}
+}
+
+// classifyAudioEffectToken 识别音频特效（MoviePilot 里并入 audio_encode 尾部，如 "DDP 5.1 Atmos"）
+func classifyAudioEffectToken(token string) string {
+	norm := strings.ToLower(strings.TrimSpace(token))
+	norm = strings.ReplaceAll(norm, " ", "")
+	switch norm {
+	case "atmos", "dolbyatmos":
+		return "Atmos"
+	default:
+		return ""
 	}
 }
 

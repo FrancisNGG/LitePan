@@ -27,6 +27,7 @@ var (
 	trailingNumberRe = regexp.MustCompile(`(?P<title>.+?)[\s._\-]*(?P<num>\d{1,2})\s*$`)
 
 	chineseSubTagRe          = regexp.MustCompile(`(?i)[\[【][^\]】]*?(?:字幕组|压制组|压制|字幕社|动漫国|fansub|sub|raws?|喵萌|霜庭云花|爱恋|猎户|动音漫影|花园字幕组|风之圣殿|澄空学园|轻之国度|肉肉|纪伊宫|银光字幕组|北宇治|漫猫|樱都|桜都|萌樱|悠哈璃羽|云歌|氢气烤肉架|拨雪寻春|沸羊羊|极影|织梦|枫叶|猪猪|幻之|曙光|恶魔岛|爱恋字幕社|Lilith[-\s]?Raws|ANi|VCB[- ]?Studio|DBD|DKB|SweetSub|LoliHouse|Nekomoe|MCE|HYSUB|KTXP|MingY|NC[-\s]?Raws|喵萌奶茶屋|动漫之家)[^\]】]*?[\]】]`)
+	cnBracketTagRe           = regexp.MustCompile(`(?i)[\[【][^\]】]*?(?:全\s*[0-9零一二三四五六七八九十百]+\s*[集话]|字幕|内封|外挂|特效|内嵌|压制|配音|音轨|国语|粤语|台配|港配|国配|双语|多音轨|原盘|杜比|特典|花絮|加长版|未删减|导演剪辑|高码率|合集|中英|简繁)[^\]】]*?[\]】]`)
 	animeBracketSquareRe     = regexp.MustCompile(`\[[^\]]+\]`)
 	animeBracketCornerRe     = regexp.MustCompile(`【[^】]+】`)
 	animeEpisodeRe           = regexp.MustCompile(`\s+-\s*(\d{1,4})\s*(?:[\(（]|\[|【|$|[\s.])`)
@@ -56,6 +57,12 @@ var (
 	pureChineseTitleRe   = regexp.MustCompile(`^[\p{Han}]{2,16}$`)
 	chineseTitleCoreRe   = regexp.MustCompile(`^([\p{Han}]+(?:[·・][\p{Han}]+)*)`)
 	enWordRe             = regexp.MustCompile(`[a-z0-9]{3,}`)
+	seasonOnlyPatterns   = []*regexp.Regexp{
+		regexp.MustCompile(`(?i)(?:^|[\s._\-])(?:S|Season)\s*0*(\d{1,3})(?:$|[\s._\-])`),
+		regexp.MustCompile(`(?:^|[\s._\-])第\s*(\d{1,3})\s*季(?:$|[\s._\-])`),
+	}
+	codecEpisodeTokenRe = regexp.MustCompile(`(?i)h[\s._\-]?26[45]|x[\s._\-]?26[45]|hevc|avc`)
+
 	seasonDirPatterns    = []struct {
 		re      *regexp.Regexp
 		extract func([]string) *int

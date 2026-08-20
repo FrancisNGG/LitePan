@@ -137,7 +137,17 @@ func (p *Planner) planGroupWithMatch(
 		shortTitle = title
 	}
 	folderInfo := rules.ParsedMedia{Title: shortTitle, Year: year}
-	newFolderName := rules.SanitizeFilename(rules.BuildFolderNameTpl(folderInfo, tmdbOriginal, tmdbID, p.folderNameTpl))
+	newFolderName := ""
+	originalName := key.dirName
+	if originalName == "" && len(items) > 0 {
+		originalName = items[0].item.Name
+	}
+	if dirs, _, ok := p.resolveNamingParts(isTV, folderInfo, tmdbOriginal, tmdbID, "", originalName); ok && len(dirs) > 0 {
+		newFolderName = rules.SanitizeFilename(dirs[0])
+	}
+	if newFolderName == "" {
+		newFolderName = rules.SanitizeFilename(rules.BuildFolderNameTpl(folderInfo, tmdbOriginal, tmdbID, p.folderNameTpl))
+	}
 	displayTitle := rules.BuildDisplayTitle(tmdbTitle, tmdbOriginal, title)
 
 	groupDirMeta := map[string]any{"group_uid": groupUID}
@@ -224,7 +234,7 @@ func (p *Planner) planGroupWithMatch(
 
 	targetWorkRef := ""
 	if p.actionType == "move" {
-		targetWorkRef = p.ensureWorkDirAction(key, newFolderName, items, promotedMoveRef)
+		targetWorkRef = p.ensureWorkDirAction(key, newFolderName, items, promotedMoveRef, p.categoryRules.MatchCategory(isTV, tmdbInfo.raw), isTV)
 	}
 
 	seasonDirCache := map[int]string{}
@@ -308,15 +318,29 @@ func (p *Planner) planGroupWithMatch(
 				parsedForTag = rules.MergeAlignedMediaTags(parsedForTag, bucketDefaults)
 			}
 		}
-		mediaInfoTag := rules.BuildMediaInfoTags(parsedForTag, p.mediaTagOrder)
-
-		fileInfo := rules.ParsedMedia{
-			Title:   displayTitle,
-			Year:    currentYear,
-			Season:  currentSeason,
-			Episode: currentEpisode,
+		mediaInfoTag := ""
+		if p.namingTplFor(isTV) == "" {
+			mediaInfoTag = rules.BuildMediaInfoTags(parsedForTag, p.mediaTagOrder)
 		}
-		base := rules.BuildTargetFilenameTpl(fileInfo, tmdbOriginal, p.marker, tmdbID, p.fileNameTpl)
+
+		fileInfo := entry.fileParsed
+		fileInfo.Title = displayTitle
+		fileInfo.Year = currentYear
+		fileInfo.Season = currentSeason
+		fileInfo.Episode = currentEpisode
+		fileInfo.Type = ""
+		if isTV {
+			fileInfo.Type = "tv"
+		} else {
+			fileInfo.Type = "movie"
+		}
+		base := ""
+		if _, filename, ok := p.resolveNamingParts(isTV, fileInfo, tmdbOriginal, tmdbID, ext, entry.item.Name); ok && filename != "" {
+			base = stripExt(rules.SanitizeFilename(filename), ext)
+		}
+		if base == "" {
+			base = rules.BuildTargetFilenameTpl(fileInfo, tmdbOriginal, p.marker, tmdbID, p.fileNameTpl)
+		}
 		if base == "" {
 			p.skip(entry.item, "无法生成新名")
 			continue
@@ -460,7 +484,7 @@ func (p *Planner) seasonDirNeedsStandardization(entry batchEntry) bool {
 	if !rules.IsSeasonDirName(entry.sourceDirName) && !rules.IsSpecialContentDirName(entry.sourceDirName) {
 		return false
 	}
-	targetName := rules.BuildSeasonFolderNameTpl(entry.fileParsed.Season, "", p.seasonFolderTpl)
+	targetName := p.seasonFolderName(entry.fileParsed.Season)
 	return targetName != "" && !rules.IsSameGeneratedName(entry.sourceDirName, targetName)
 }
 
