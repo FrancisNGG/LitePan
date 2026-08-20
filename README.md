@@ -58,7 +58,7 @@
   <tr>
     <td width="50%" valign="top" align="center">
       <h3>目录整理</h3>
-      <p align="left">TMDB 识别，预览后再归档。</p>
+      <p align="left">TMDB 识别，MoviePilot 对齐，自动分类归档。</p>
       <img src="docs/pictures/feature-organize.png" alt="目录整理" height="220">
     </td>
     <td width="50%" valign="top" align="center">
@@ -68,6 +68,17 @@
     </td>
   </tr>
 </table>
+
+## ▎ 目录整理（MoviePilot 对齐）
+
+目录整理已全面对齐 [MoviePilot](https://github.com/jxxghp/MoviePilot) 的识别与归档逻辑：
+
+- **MoviePilot 风格命名模板**：电影 / 电视剧各一个 Jinja2 模板，渲染完整路径（目录 / 季目录 / 文件名），支持 `{{ title }}`、`{{ en_title }}`、`{{ year }}`、`{{ season_episode }}`、`{{ videoCodec }}`、`{{ audioCodec }}`、`{{ webSource }}`、`{{ releaseGroup }}` 等 MoviePilot 兼容变量
+- **二级分类**：按 TMDB 元数据（类型 / 语种 / 地区 / 年份）自动分类，策略与 MoviePilot 官方 `category.yaml` 一致（动画电影 / 华语电影 / 外语电影 / 国漫 / 日番 / 纪录片 / 儿童 / 综艺 / 国产剧 / 欧美剧 / 日韩剧 / 未分类），move 时自动创建「电影 / 电视剧」类型目录 + 分类目录
+- **文件名解析**：支持广告前缀剥离、中文方括号标签、H.265 / HEVC / x265 编码归一、色深（10bit）、音频编码+声道+特效合并（`DDP 5.1 Atmos`）、流媒体平台识别（Netflix / HBO / Disney+ / iTunes 等 400+ 简称与全称）、视频特效（HDR10+ / DoVi）、制作组内置表 + 自定义输入框
+- **整理预览**：模板测试实时查 TMDB 验证结果，支持手动匹配
+
+---
 
 ## ▎ 挂载与更多功能
 
