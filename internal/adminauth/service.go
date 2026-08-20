@@ -83,8 +83,8 @@ type SystemConfig struct {
 	UploadTaskConcurrency      int     `json:"upload_task_concurrency,omitempty"`
 	LogRetentionDays           int     `json:"log_retention_days,omitempty"`
 	AuthActiveRefreshEnabled   bool    `json:"auth_active_refresh_enabled,omitempty"`
-	WebDAVEnabled              bool    `json:"webdav_enabled"`
-	WebDAVRoot                 string  `json:"webdav_root"`
+	WebDAVEnabled              bool     `json:"webdav_enabled"`
+	WebDAVRoot                 *string  `json:"webdav_root,omitempty"`
 }
 
 type WebDAVConfigRequest struct {
@@ -360,8 +360,21 @@ func (s *Service) SystemConfig(ctx context.Context) SystemConfig {
 		LogRetentionDays:           s.configInt(ctx, "log_retention_days", 30),
 		AuthActiveRefreshEnabled:   s.configBool(ctx, "auth_active_refresh_enabled", true),
 		WebDAVEnabled:              s.webdavEnabled(ctx),
-		WebDAVRoot:                 s.webdavRoot(ctx),
+		WebDAVRoot:                 s.webdavRootPtr(ctx),
 	}
+}
+
+// webdavRootPtr 返回 webdav_root 设置；未配置过返回 nil（前端显示默认填充），
+// 已配置（含清空）返回真实值（空字符串 = 网盘模式）。
+func (s *Service) webdavRootPtr(ctx context.Context) *string {
+	if s.configs == nil {
+		return nil
+	}
+	if v, ok, _ := s.configs.Get(ctx, KeyWebDAVRoot); ok {
+		vv := strings.TrimSpace(v)
+		return &vv
+	}
+	return nil
 }
 
 func (s *Service) IndexAccountSwitchMode(ctx context.Context) string {
@@ -380,9 +393,8 @@ func (s *Service) UpdateWebDAVConfig(ctx context.Context, req WebDAVConfigReques
 	if req.WebDAVEnabled != nil {
 		_ = s.configs.Set(ctx, KeyWebDAVEnabled, boolString(*req.WebDAVEnabled))
 	}
-	if req.WebDAVRoot != "" {
-		_ = s.configs.Set(ctx, KeyWebDAVRoot, req.WebDAVRoot)
-	}
+	// 无条件写入 webdav_root：空值表示回到网盘模式（清空即生效）
+	_ = s.configs.Set(ctx, KeyWebDAVRoot, strings.TrimSpace(req.WebDAVRoot))
 	return nil
 }
 

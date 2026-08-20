@@ -36,7 +36,8 @@ const webdavServerUrl = computed(() => {
 });
 
 function applySettings(data: { webdav_enabled?: boolean; webdav_root?: string }) {
-  applyBaseline({ webdav_enabled: data.webdav_enabled !== false, webdav_root: data.webdav_root || "/app/strm" });
+  // 未配置过（undefined）时默认填充 /app/strm；已配置为空字符串时保持空（网盘模式）
+  applyBaseline({ webdav_enabled: data.webdav_enabled !== false, webdav_root: data.webdav_root ?? "/app/strm" });
 }
 
 async function loadSettings() {
@@ -57,7 +58,7 @@ async function saveSettings(silent = false) {
   try {
     await updateWebDAVConfig({
       webdav_enabled: settings.webdav_enabled,
-      webdav_root: settings.webdav_root,
+      webdav_root: settings.webdav_root, // 空字符串 = 回到网盘模式
     });
     applyBaseline({ webdav_enabled: settings.webdav_enabled, webdav_root: settings.webdav_root });
     if (!silent) toast.success("WebDAV 设置已保存");
