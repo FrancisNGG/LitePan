@@ -11,6 +11,7 @@ export interface MediaOrganizeTaskConfig {
   use_tmdb?: boolean;
   overwrite_existing?: boolean;
   recursive?: boolean;
+  move_media_only?: boolean;
   account_id?: string | number;
 }
 
@@ -119,6 +120,7 @@ export type MediaOrganizeTaskInput = {
   use_tmdb: boolean;
   overwrite_existing?: boolean;
   recursive?: boolean;
+  move_media_only?: boolean;
 };
 
 export function fetchMediaOrganizeTasks() {

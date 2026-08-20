@@ -414,7 +414,9 @@ func (p *Planner) planGroupWithMatch(
 			deps = append(deps, action.ID)
 			seasonDirRename.DependsOn = deps
 		}
-		p.planMetaFollowers(entry, newMetaBase, ext, action.ID)
+		if !(p.actionType == "move" && p.moveMediaOnly) {
+			p.planMetaFollowers(entry, newMetaBase, ext, action.ID)
+		}
 	}
 	return nil
 }

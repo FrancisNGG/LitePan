@@ -25,6 +25,7 @@ func TaskConfigFromMap(cfg map[string]any) TaskConfig {
 		FileNameTemplate:     strings.TrimSpace(strMap(cfg, "file_name_template")),
 		FileExtensions:       strings.TrimSpace(strMap(cfg, "file_extensions")),
 		MetadataExtensions:   strings.TrimSpace(strMap(cfg, "metadata_extensions")),
+		MoveMediaOnly:        rules.SettingBool(cfg["move_media_only"], false),
 	}
 }
 

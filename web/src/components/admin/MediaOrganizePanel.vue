@@ -112,6 +112,7 @@ type TaskForm = {
   rename_marker: string;
   use_tmdb: string;
   recursive: boolean;
+  move_media_only: string;
 };
 
 const emptyForm = (): TaskForm => ({
@@ -126,6 +127,7 @@ const emptyForm = (): TaskForm => ({
   rename_marker: "",
   use_tmdb: "true",
   recursive: true,
+  move_media_only: "false",
 });
 
 const tasks = ref<MediaOrganizeTask[]>([]);
@@ -385,6 +387,7 @@ function openEdit(task: MediaOrganizeTask) {
     rename_marker: cfg.rename_marker || "",
     use_tmdb: cfg.use_tmdb !== false ? "true" : "false",
     recursive: cfg.recursive !== false,
+    move_media_only: cfg.move_media_only === true ? "true" : "false",
   });
   dialogOpen.value = true;
 }
@@ -429,6 +432,7 @@ function buildPayload(): MediaOrganizeTaskInput {
     rename_marker: form.rename_marker,
     use_tmdb: form.use_tmdb === "true",
     recursive: form.recursive,
+    move_media_only: form.move_media_only === "true",
   };
 }
 
@@ -1030,6 +1034,13 @@ defineExpose({
           </FormField>
           <FormField label="媒体类型">
             <AppSelect v-model="form.media_type" :options="mediaTypeOptions" />
+          </FormField>
+        </div>
+
+        <div v-if="form.action_type === 'move'" class="modal-form__row">
+          <FormField label="仅移动媒体文件">
+            <AppSelect v-model="form.move_media_only" :options="boolOptions" />
+            <p class="form-field__hint">开：只移动 mkv/mp4 等媒体文件；关：媒体文件 + 字幕/nfo/海报等关联文件一起移动</p>
           </FormField>
         </div>
 

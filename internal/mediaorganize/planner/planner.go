@@ -44,6 +44,7 @@ type Planner struct {
 
 	mediaExts         map[string]struct{}
 	metaExts          map[string]struct{}
+	moveMediaOnly     bool
 	mediaTagOrder     []string
 	alignMediaTags    bool
 	actionType        string
@@ -135,6 +136,7 @@ func (p *Planner) loadSettings() {
 		p.mediaTagOrder = rules.DefaultMediaTagOrder
 	}
 	p.alignMediaTags = rules.SettingBool(p.settings["mo_align_media_tags"], false)
+	p.moveMediaOnly = p.cfg.MoveMediaOnly
 
 	p.actionType = strings.ToLower(strings.TrimSpace(p.cfg.ActionType))
 	if p.actionType == "" {
