@@ -17,6 +17,7 @@ func NormalizeTaskConfig(config map[string]any) map[string]any {
 		"use_tmdb":               true,
 		"overwrite_existing":     false,
 		"recursive":              true,
+		"move_media_only":        false,
 	}
 	if config == nil {
 		return defaults

@@ -299,7 +299,10 @@ func (p *Planner) Build() (*moplan.Plan, error) {
 	if err := p.runRecognitionEnhancement(); err != nil {
 		return nil, err
 	}
-	p.tryWholeDirMoveOptimization()
+	// 整体搬目录优化（作者原版）：默认启用；仅当「仅移动媒体文件」开关打开时禁用，改为逐个搬文件
+	if !p.moveMediaOnly {
+		p.tryWholeDirMoveOptimization()
+	}
 	p.detectSameWorkDirConflicts()
 	p.detectTargetNameConflicts()
 	p.planEmptyDirCleanup()

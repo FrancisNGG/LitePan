@@ -38,6 +38,7 @@ type mediaOrganizeTaskCreateDTO struct {
 	UseTmdb           bool   `json:"use_tmdb"`
 	OverwriteExisting bool   `json:"overwrite_existing"`
 	Recursive         bool   `json:"recursive"`
+	MoveMediaOnly     bool   `json:"move_media_only"`
 }
 
 type mediaOrganizeTaskUpdateDTO struct {
@@ -53,6 +54,7 @@ type mediaOrganizeTaskUpdateDTO struct {
 	UseTmdb           *bool   `json:"use_tmdb"`
 	OverwriteExisting *bool   `json:"overwrite_existing"`
 	Recursive         *bool   `json:"recursive"`
+	MoveMediaOnly     *bool   `json:"move_media_only"`
 }
 
 func (h *Handler) listMediaOrganizeTasks(w http.ResponseWriter, r *http.Request) {
@@ -97,6 +99,7 @@ func (h *Handler) createMediaOrganizeTask(w http.ResponseWriter, r *http.Request
 		"use_tmdb":            in.UseTmdb,
 		"overwrite_existing":  in.OverwriteExisting,
 		"recursive":           in.Recursive,
+		"move_media_only":     in.MoveMediaOnly,
 	})
 	cfgBytes, _ := json.Marshal(cfg)
 	task, err := h.mediaOrganize.CreateTask(r.Context(), &domain.MediaOrganizeTask{
@@ -154,6 +157,7 @@ func (h *Handler) updateMediaOrganizeTask(w http.ResponseWriter, r *http.Request
 	applyOptionalBool(cfg, "use_tmdb", in.UseTmdb)
 	applyOptionalBool(cfg, "overwrite_existing", in.OverwriteExisting)
 	applyOptionalBool(cfg, "recursive", in.Recursive)
+	applyOptionalBool(cfg, "move_media_only", in.MoveMediaOnly)
 
 	cfg = mediaorganize.NormalizeTaskConfig(cfg)
 	cfgBytes, _ := json.Marshal(cfg)

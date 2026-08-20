@@ -586,6 +586,69 @@ func TestMovePlanIncludesMetaFollowers(t *testing.T) {
 	}
 }
 
+func TestMovePlanSkipsMetaFollowersWhenMoveMediaOnly(t *testing.T) {
+	base := "白日梦想家.The Secret Life of Walter Mitty.2013.1080p.BluRay.REMUX.DTS-HD.MA.7.1.AVC"
+	fs := &mockFS{dirs: map[string][]domain.FileItem{
+		"root": {
+			{ID: "trg", Name: "整理目标", IsDir: true},
+			{ID: "src", Name: "白日梦想家 蓝光原盘REMUX 内封简英字幕", IsDir: true},
+		},
+		"src": {
+			{ID: "mkv1", Name: base + ".mkv"},
+			{ID: "poster", Name: base + "-poster.jpg"},
+			{ID: "nfo", Name: base + ".nfo"},
+		},
+	}}
+	tmdb := &mockTMDB{
+		searchFn: func(query string, year *int) []map[string]any {
+			if strings.Contains(query, "白日梦想家") {
+				return []map[string]any{
+					{"id": 116745, "title": "白日梦想家", "original_title": "The Secret Life of Walter Mitty", "release_date": "2013-12-25"},
+				}
+			}
+			return nil
+		},
+	}
+	p := planner.New(
+		context.Background(),
+		fs,
+		1,
+		planner.TaskConfig{
+			TargetDirectoryID:  "root",
+			TargetRootID:       "trg",
+			ActionType:         "move",
+			MediaType:          "auto",
+			UseTMDB:            true,
+			Recursive:          true,
+			MetadataExtensions: "nfo;jpg;png",
+			MoveMediaOnly:      true,
+		},
+		planner.Settings{"mo_tmdb_api_key": "test-key"},
+		"task-test",
+		tmdb,
+		func(string) {},
+		nil,
+		func() error { return nil },
+	)
+	plan, err := p.Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if followers, ok := plan.Diagnostics["meta_followers"].([]map[string]any); ok && len(followers) > 0 {
+		t.Fatalf("MoveMediaOnly=true 时不应生成 meta_followers，got %d", len(followers))
+	}
+	var movedPoster, movedNFO bool
+	for _, a := range plan.Actions {
+		if a.Kind == moplan.ActionKindRelocate && (a.SourceName == base+"-poster.jpg" || a.SourceName == base+".nfo") {
+			movedPoster = movedPoster || a.SourceName == base+"-poster.jpg"
+			movedNFO = movedNFO || a.SourceName == base+".nfo"
+		}
+	}
+	if movedPoster || movedNFO {
+		t.Fatalf("MoveMediaOnly=true 时不应生成关联文件移动动作 poster=%v nfo=%v", movedPoster, movedNFO)
+	}
+}
+
 func TestRenamePlanDedupesSeasonDirRename(t *testing.T) {
 	files := make([]domain.FileItem, 0, 13)
 	for i := 1; i <= 13; i++ {

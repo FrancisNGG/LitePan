@@ -1038,10 +1038,16 @@ defineExpose({
         </div>
 
         <div v-if="form.action_type === 'move'" class="modal-form__row">
-          <FormField label="仅移动媒体文件">
+          <div class="form-field">
+            <div class="form-field__label-row">
+              <label class="form-field__label">仅移动媒体文件</label>
+              <SettingsHelpTooltip title="仅移动媒体文件说明">
+                <p><b>开</b>：只移动 mkv/mp4 等媒体文件，字幕/nfo/海报等关联文件留在原目录。</p>
+                <p><b>关</b>（默认）：媒体文件与字幕/nfo/海报等关联文件一起移动。</p>
+              </SettingsHelpTooltip>
+            </div>
             <AppSelect v-model="form.move_media_only" :options="boolOptions" />
-            <p class="form-field__hint">开：只移动 mkv/mp4 等媒体文件；关：媒体文件 + 字幕/nfo/海报等关联文件一起移动</p>
-          </FormField>
+          </div>
         </div>
 
         <div v-else class="modal-form__row">
