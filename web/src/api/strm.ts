@@ -66,7 +66,6 @@ export interface StrmBranch {
 export interface StrmSettings {
   token: string;
   base_url: string;
-  strm_dir: string;
   signature_enabled: boolean;
   default_scan_interval: number;
   default_extensions: string;
@@ -259,7 +258,6 @@ export function saveStrmSettings(body: Partial<Record<keyof StrmSettings, string
   const map: Array<[keyof StrmSettings, (v: unknown) => string]> = [
     ["token", (v) => String(v)],
     ["base_url", (v) => String(v)],
-    ["strm_dir", (v) => String(v)],
     ["signature_enabled", (v) => (v ? "true" : "false")],
     ["default_scan_interval", (v) => String(v)],
     ["default_extensions", (v) => String(v)],

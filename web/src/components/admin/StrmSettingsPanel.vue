@@ -33,7 +33,6 @@ const metaTmdbTipOpen = ref(false);
 type StrmSettingsForm = Pick<
   StrmSettings,
   | "base_url"
-  | "strm_dir"
   | "signature_enabled"
   | "default_scan_interval"
   | "default_extensions"
@@ -68,7 +67,6 @@ const {
 } = useSettingsForm<StrmSettingsForm>(
   {
     base_url: "",
-    strm_dir: "",
     signature_enabled: false,
     default_scan_interval: DEFAULT_SCAN_INTERVAL_MINUTES,
     default_extensions: "",
@@ -113,7 +111,6 @@ function defaultScanIntervalHours(): number {
 function applySettings(data: Awaited<ReturnType<typeof fetchStrmSettings>>) {
   applyBaseline({
     base_url: data.base_url ?? "",
-    strm_dir: data.strm_dir ?? "",
     signature_enabled: !!data.signature_enabled,
     default_scan_interval: parseSettingNumber(data.default_scan_interval) || DEFAULT_SCAN_INTERVAL_MINUTES,
     default_extensions: data.default_extensions ?? "",
@@ -151,7 +148,6 @@ async function saveSettings() {
   try {
     const data = await saveStrmSettings({
       base_url: settings.base_url,
-      strm_dir: settings.strm_dir,
       signature_enabled: settings.signature_enabled,
       default_scan_interval: settings.default_scan_interval,
       default_extensions: settings.default_extensions,
@@ -252,21 +248,6 @@ defineExpose(
                 </AppButton>
               </template>
             </InputActionField>
-          </template>
-        </SettingsRow>
-
-        <SettingsRow :show-changed-badge="true" :changed="isSettingChanged('strm_dir')">
-          <template #info>
-            <div class="settings-row__label">
-              <span>STRM 输出目录</span>
-              <SettingsHelpTooltip title="STRM 输出目录说明">
-                <p>STRM 文件输出目录（绝对路径或相对于数据目录）。</p>
-                <p>留空时使用默认的 strm 目录；修改后对新建任务生效。</p>
-              </SettingsHelpTooltip>
-            </div>
-          </template>
-          <template #control>
-            <AppInput v-model="settings.strm_dir" placeholder="/app/strm 或留空" />
           </template>
         </SettingsRow>
 

@@ -115,12 +115,18 @@ func New(d Deps) *Server {
 }
 
 // webDAVRoot 返回当前 webdav_root 设置（运行时动态读取，允许管理界面修改后立即生效）。
+// 为空时默认暴露 /app/strm（STRM 输出目录）。
 func (s *Server) webDAVRoot() string {
-	if s.settings == nil {
-		return ""
+	if s.settings != nil {
+		if v := strings.TrimSpace(s.settings.String(settings.KeyWebDAVRoot)); v != "" {
+			return v
+		}
 	}
-	return strings.TrimSpace(s.settings.String(settings.KeyWebDAVRoot))
+	return defaultWebDAVRoot
 }
+
+// defaultWebDAVRoot 是 WebDAV 根目录的默认值：STRM 输出目录。
+const defaultWebDAVRoot = "/app/strm"
 
 // localHandler 返回绑定当前 webdav_root 的本地目录 handler；root 变化时重建。
 func (s *Server) localHandler(root string) *webdav.Handler {
@@ -149,8 +155,14 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if root := s.webDAVRoot(); root != "" {
-		// 本地目录模式：跳过网盘专属逻辑，直接交给标准 webdav.Handler（本地文件系统）
-		// 运行时动态读取设置，root 变化立即生效
+		// 本地目录模式：跳过网盘专属逻辑，直接暴露本地目录。
+		// GET/HEAD 支持目录浏览与文件下载；其余 WebDAV 方法交给标准 handler。
+		// 运行时动态读取设置，root 变化立即生效。
+		if r.Method == http.MethodGet || r.Method == http.MethodHead {
+			if s.serveLocalRead(w, r, root) {
+				return
+			}
+		}
 		s.localHandler(root).ServeHTTP(w, r)
 		return
 	}

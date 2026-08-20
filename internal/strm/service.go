@@ -81,12 +81,6 @@ func NewService(opts ServiceOptions) *Service {
 	if strmDir == "" {
 		strmDir = filepath.Join(filepath.Dir(filepath.Clean(opts.DataDir)), "strm")
 	}
-	// 设置项 strm_dir 优先（运行时可通过管理界面修改）
-	if opts.Settings != nil {
-		if v := strings.TrimSpace(opts.Settings.String(settings.KeyStrmDir)); v != "" {
-			strmDir = v
-		}
-	}
 	return &Service{
 		repo:            opts.Repo,
 		branches:        opts.Branches,
@@ -432,7 +426,6 @@ func (s *Service) GetRuntimeSettings(ctx context.Context, requestBase string) (m
 	return map[string]any{
 		"token":                   token,
 		"base_url":                effective,
-		"strm_dir":                s.settings.String(settings.KeyStrmDir),
 		"signature_enabled":       s.settings.Bool(settings.KeyStrmSignatureEnabled),
 		"default_scan_interval":   s.settings.Int(settings.KeyStrmDefaultScanInterval),
 		"default_extensions":      s.settings.String(settings.KeyStrmDefaultExtensions),
@@ -762,16 +755,10 @@ func branchRelativePath(taskPath, branchPath string) string {
 	return ""
 }
 
-// outputDir 返回当前 STRM 输出根目录：优先读取设置项 strm_dir（运行时生效），
-// 未设置时回退到启动时计算的默认目录。
+// outputDir 返回 STRM 输出根目录（启动时确定，固定为 /app/strm 或环境变量指定值）。
 func (s *Service) outputDir() string {
 	if s == nil {
 		return ""
-	}
-	if s.settings != nil {
-		if v := strings.TrimSpace(s.settings.String(settings.KeyStrmDir)); v != "" {
-			return v
-		}
 	}
 	return s.strmDir
 }
