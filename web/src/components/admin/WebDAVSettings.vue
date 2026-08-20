@@ -104,13 +104,13 @@ defineExpose({
             <div class="settings-row__label">
               <span>WebDAV 根目录</span>
               <SettingsHelpTooltip title="WebDAV 根目录说明">
-                <p>WebDAV 挂载根目录（本地绝对路径）。默认 <code>/app/strm</code>（STRM 输出目录），供 Infuse/VidHub 等客户端直接读取 STRM 文件。</p>
-                <p>可改为其他本地目录；留空时使用默认值 <code>/app/strm</code>。</p>
+                <p>WebDAV 挂载根目录（本地绝对路径）。填写 <code>/app/strm</code>（STRM 输出目录）等路径时，<code>/dav</code> 直接暴露该本地目录，适合 Infuse/VidHub 等客户端读取 STRM 文件。</p>
+                <p>留空时回到网盘模式（以网盘账号为根）；默认值 <code>/app/strm</code> 仅为输入框预填，未保存则不会生效。</p>
               </SettingsHelpTooltip>
             </div>
           </template>
           <template #control>
-            <AppInput v-model="settings.webdav_root" placeholder="默认 /app/strm（STRM 输出目录）" />
+            <AppInput v-model="settings.webdav_root" placeholder="留空 = 网盘模式；如 /app/strm" />
           </template>
         </SettingsRow>
       </template>

@@ -114,13 +114,17 @@ func New(d Deps) *Server {
 	}
 }
 
-// webDAVRoot 返回当前 webdav_root 设置（运行时动态读取，允许管理界面修改后立即生效）。
+// webDAVRoot 返回当前 webdav_root 设置（每次请求实时读取 db，保存后立即生效）。
 // 留空时保持原行为：以网盘账号为根（网盘模式）。
-func (s *Server) webDAVRoot() string {
-	if s.settings == nil {
+func (s *Server) webDAVRoot(ctx context.Context) string {
+	if s.configs == nil {
 		return ""
 	}
-	return strings.TrimSpace(s.settings.String(settings.KeyWebDAVRoot))
+	v, ok, err := s.configs.Get(ctx, settings.KeyWebDAVRoot)
+	if err != nil || !ok {
+		return ""
+	}
+	return strings.TrimSpace(v)
 }
 
 // localHandler 返回绑定当前 webdav_root 的本地目录 handler；root 变化时重建。
@@ -149,7 +153,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !s.authenticate(w, r) {
 		return
 	}
-	if root := s.webDAVRoot(); root != "" {
+	if root := s.webDAVRoot(r.Context()); root != "" {
 		// 本地目录模式：跳过网盘专属逻辑，直接暴露本地目录。
 		// GET/HEAD 支持目录浏览与文件下载；其余 WebDAV 方法交给标准 handler。
 		// 运行时动态读取设置，root 变化立即生效。
