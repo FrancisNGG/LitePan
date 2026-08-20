@@ -438,6 +438,7 @@ func (s *Service) GetRuntimeSettings(ctx context.Context, requestBase string) (m
 	return map[string]any{
 		"token":                   token,
 		"base_url":                effective,
+		"strm_dir":                s.settings.String(settings.KeyStrmDir),
 		"signature_enabled":       s.settings.Bool(settings.KeyStrmSignatureEnabled),
 		"default_scan_interval":   s.settings.Int(settings.KeyStrmDefaultScanInterval),
 		"default_extensions":      s.settings.String(settings.KeyStrmDefaultExtensions),

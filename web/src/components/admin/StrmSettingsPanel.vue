@@ -17,6 +17,7 @@ import SettingsBoolSegment from "@/components/admin/SettingsBoolSegment.vue";
 import SettingsCard from "@/components/admin/SettingsCard.vue";
 import SettingsHelpTooltip from "@/components/admin/SettingsHelpTooltip.vue";
 import SettingsRow from "@/components/admin/SettingsRow.vue";
+import StrmFilesPanel from "@/components/admin/StrmFilesPanel.vue";
 import { confirm } from "@/composables/useConfirm";
 import { bindSettingsPanelExpose, useSettingsForm } from "@/composables/useSettingsForm";
 import { useSettingsLoad } from "@/composables/useSettingsLoad";
@@ -32,6 +33,7 @@ const metaTmdbTipOpen = ref(false);
 type StrmSettingsForm = Pick<
   StrmSettings,
   | "base_url"
+  | "strm_dir"
   | "signature_enabled"
   | "default_scan_interval"
   | "default_extensions"
@@ -66,6 +68,7 @@ const {
 } = useSettingsForm<StrmSettingsForm>(
   {
     base_url: "",
+    strm_dir: "",
     signature_enabled: false,
     default_scan_interval: DEFAULT_SCAN_INTERVAL_MINUTES,
     default_extensions: "",
@@ -110,6 +113,7 @@ function defaultScanIntervalHours(): number {
 function applySettings(data: Awaited<ReturnType<typeof fetchStrmSettings>>) {
   applyBaseline({
     base_url: data.base_url ?? "",
+    strm_dir: data.strm_dir ?? "",
     signature_enabled: !!data.signature_enabled,
     default_scan_interval: parseSettingNumber(data.default_scan_interval) || DEFAULT_SCAN_INTERVAL_MINUTES,
     default_extensions: data.default_extensions ?? "",
@@ -147,6 +151,7 @@ async function saveSettings() {
   try {
     const data = await saveStrmSettings({
       base_url: settings.base_url,
+      strm_dir: settings.strm_dir,
       signature_enabled: settings.signature_enabled,
       default_scan_interval: settings.default_scan_interval,
       default_extensions: settings.default_extensions,
@@ -227,8 +232,7 @@ defineExpose(
         <SettingsRow :show-changed-badge="true" :changed="isSettingChanged('base_url')">
           <template #info>
             <div class="settings-row__label">
-              <span>对外基址</span>
-              <SettingsHelpTooltip title="对外基址说明">
+              <span>对外基址</span>              <SettingsHelpTooltip title="对外基址说明">
                 <p>生成 .strm 内完整 URL 时使用，例如 https://pan.example.com。留空则使用当前服务地址。</p>
                 <p>右侧「一键替换」会批量改写已有 .strm 文件里的站点部分，并保存此基址。</p>
               </SettingsHelpTooltip>
@@ -248,6 +252,21 @@ defineExpose(
                 </AppButton>
               </template>
             </InputActionField>
+          </template>
+        </SettingsRow>
+
+        <SettingsRow :show-changed-badge="true" :changed="isSettingChanged('strm_dir')">
+          <template #info>
+            <div class="settings-row__label">
+              <span>STRM 输出目录</span>
+              <SettingsHelpTooltip title="STRM 输出目录说明">
+                <p>STRM 文件输出目录（绝对路径或相对于数据目录）。</p>
+                <p>留空时使用默认的 strm 目录；修改后对新建任务生效。</p>
+              </SettingsHelpTooltip>
+            </div>
+          </template>
+          <template #control>
+            <AppInput v-model="settings.strm_dir" placeholder="/app/strm 或留空" />
           </template>
         </SettingsRow>
 

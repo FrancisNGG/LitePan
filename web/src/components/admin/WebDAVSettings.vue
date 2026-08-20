@@ -27,6 +27,7 @@ useAdminPageLoading("share", loading);
 
 const { settings, isDirty, isFieldChanged, applyBaseline, revert: revertSettings } = useSettingsForm({
   webdav_enabled: false,
+  webdav_root: "",
 });
 
 const webdavServerUrl = computed(() => {
@@ -34,8 +35,8 @@ const webdavServerUrl = computed(() => {
   return `${window.location.origin.replace(/\/$/, "")}/dav`;
 });
 
-function applySettings(data: { webdav_enabled?: boolean }) {
-  applyBaseline({ webdav_enabled: data.webdav_enabled !== false });
+function applySettings(data: { webdav_enabled?: boolean; webdav_root?: string }) {
+  applyBaseline({ webdav_enabled: data.webdav_enabled !== false, webdav_root: data.webdav_root ?? "" });
 }
 
 async function loadSettings() {
@@ -56,8 +57,9 @@ async function saveSettings(silent = false) {
   try {
     await updateWebDAVConfig({
       webdav_enabled: settings.webdav_enabled,
+      webdav_root: settings.webdav_root,
     });
-    applyBaseline({ webdav_enabled: settings.webdav_enabled });
+    applyBaseline({ webdav_enabled: settings.webdav_enabled, webdav_root: settings.webdav_root });
     if (!silent) toast.success("WebDAV 设置已保存");
   } catch (e) {
     toast.error(getApiErrorMessage(e, "保存失败"));
@@ -93,6 +95,21 @@ defineExpose({
           </template>
           <template #control>
             <SettingsBoolSegment v-model="settings.webdav_enabled" label="启用 WebDAV 服务" />
+          </template>
+        </SettingsRow>
+
+        <SettingsRow :show-changed-badge="true" :changed="isFieldChanged('webdav_root')">
+          <template #info>
+            <div class="settings-row__label">
+              <span>WebDAV 根目录</span>
+              <SettingsHelpTooltip title="WebDAV 根目录说明">
+                <p>WebDAV 挂载根目录（本地绝对路径，如 STRM 输出目录）。</p>
+                <p>留空时保持原行为：以网盘账号为根。配置后 <code>/dav</code> 直接暴露该本地目录，适合给 Infuse/VidHub 等客户端读取 STRM 文件。</p>
+              </SettingsHelpTooltip>
+            </div>
+          </template>
+          <template #control>
+            <AppInput v-model="settings.webdav_root" placeholder="/app/strm 或留空" />
           </template>
         </SettingsRow>
       </template>

@@ -29,6 +29,7 @@ const (
 	KeySessionTimeout             = "session_timeout"
 	KeyPublicIndexEnabled         = "public_index_enabled"
 	KeyWebDAVEnabled              = "webdav_enabled"
+	KeyWebDAVRoot                 = "webdav_root"
 	KeyIndexAccountSwitchMode     = "index_account_switch_mode"
 	KeyAdminHomeReturnMode        = "admin_home_return_mode"
 	KeyHeaderEffectsEnabled       = "header_effects_enabled"
@@ -83,10 +84,12 @@ type SystemConfig struct {
 	LogRetentionDays           int     `json:"log_retention_days,omitempty"`
 	AuthActiveRefreshEnabled   bool    `json:"auth_active_refresh_enabled,omitempty"`
 	WebDAVEnabled              bool    `json:"webdav_enabled"`
+	WebDAVRoot                 string  `json:"webdav_root"`
 }
 
 type WebDAVConfigRequest struct {
-	WebDAVEnabled *bool `json:"webdav_enabled"`
+	WebDAVEnabled *bool  `json:"webdav_enabled"`
+	WebDAVRoot    string `json:"webdav_root"`
 }
 
 type UpdateCredentialsRequest struct {
@@ -357,6 +360,7 @@ func (s *Service) SystemConfig(ctx context.Context) SystemConfig {
 		LogRetentionDays:           s.configInt(ctx, "log_retention_days", 30),
 		AuthActiveRefreshEnabled:   s.configBool(ctx, "auth_active_refresh_enabled", true),
 		WebDAVEnabled:              s.webdavEnabled(ctx),
+		WebDAVRoot:                 s.webdavRoot(ctx),
 	}
 }
 
@@ -375,6 +379,9 @@ func (s *Service) IndexStrmAutoDetectEnabled(ctx context.Context) bool {
 func (s *Service) UpdateWebDAVConfig(ctx context.Context, req WebDAVConfigRequest) error {
 	if req.WebDAVEnabled != nil {
 		_ = s.configs.Set(ctx, KeyWebDAVEnabled, boolString(*req.WebDAVEnabled))
+	}
+	if req.WebDAVRoot != "" {
+		_ = s.configs.Set(ctx, KeyWebDAVRoot, req.WebDAVRoot)
 	}
 	return nil
 }
@@ -523,6 +530,10 @@ func (s *Service) publicIndexEnabled(ctx context.Context) bool {
 
 func (s *Service) webdavEnabled(ctx context.Context) bool {
 	return s.configBool(ctx, KeyWebDAVEnabled, true)
+}
+
+func (s *Service) webdavRoot(ctx context.Context) string {
+	return s.configString(ctx, KeyWebDAVRoot, "")
 }
 
 func (s *Service) headerEffectsEnabled(ctx context.Context) bool {
