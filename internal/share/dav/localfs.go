@@ -49,7 +49,14 @@ var _ webdav.FileSystem = (*localFileSystem)(nil)
 
 // serveLocalRead 处理本地目录模式的 GET/HEAD：目录返回 HTML 列表，文件直接读盘返回。
 func (s *Server) serveLocalRead(w http.ResponseWriter, r *http.Request, root string) bool {
-	name := strings.TrimPrefix(pathClean(r.URL.Path), "/")
+	p := r.URL.Path
+	if strings.HasPrefix(p, mountPrefix) {
+		p = strings.TrimPrefix(p, mountPrefix)
+	}
+	if p == "" {
+		p = "/"
+	}
+	name := strings.TrimPrefix(pathClean(p), "/")
 	full := filepath.Join(root, filepath.FromSlash(name))
 	info, err := os.Stat(full)
 	if err != nil {

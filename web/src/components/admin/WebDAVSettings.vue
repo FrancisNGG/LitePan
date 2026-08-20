@@ -27,7 +27,7 @@ useAdminPageLoading("share", loading);
 
 const { settings, isDirty, isFieldChanged, applyBaseline, revert: revertSettings } = useSettingsForm({
   webdav_enabled: false,
-  webdav_root: "",
+  webdav_root: "/app/strm",
 });
 
 const webdavServerUrl = computed(() => {
@@ -36,7 +36,7 @@ const webdavServerUrl = computed(() => {
 });
 
 function applySettings(data: { webdav_enabled?: boolean; webdav_root?: string }) {
-  applyBaseline({ webdav_enabled: data.webdav_enabled !== false, webdav_root: data.webdav_root ?? "" });
+  applyBaseline({ webdav_enabled: data.webdav_enabled !== false, webdav_root: data.webdav_root || "/app/strm" });
 }
 
 async function loadSettings() {

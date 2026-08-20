@@ -115,18 +115,13 @@ func New(d Deps) *Server {
 }
 
 // webDAVRoot 返回当前 webdav_root 设置（运行时动态读取，允许管理界面修改后立即生效）。
-// 为空时默认暴露 /app/strm（STRM 输出目录）。
+// 留空时保持原行为：以网盘账号为根（网盘模式）。
 func (s *Server) webDAVRoot() string {
-	if s.settings != nil {
-		if v := strings.TrimSpace(s.settings.String(settings.KeyWebDAVRoot)); v != "" {
-			return v
-		}
+	if s.settings == nil {
+		return ""
 	}
-	return defaultWebDAVRoot
+	return strings.TrimSpace(s.settings.String(settings.KeyWebDAVRoot))
 }
-
-// defaultWebDAVRoot 是 WebDAV 根目录的默认值：STRM 输出目录。
-const defaultWebDAVRoot = "/app/strm"
 
 // localHandler 返回绑定当前 webdav_root 的本地目录 handler；root 变化时重建。
 func (s *Server) localHandler(root string) *webdav.Handler {
