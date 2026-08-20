@@ -87,12 +87,6 @@ func NewService(opts ServiceOptions) *Service {
 			strmDir = v
 		}
 	}
-	// 设置项 strm_dir 优先（运行时可通过管理界面修改）
-	if opts.Settings != nil {
-		if v := strings.TrimSpace(opts.Settings.String(settings.KeyStrmDir)); v != "" {
-			strmDir = v
-		}
-	}
 	return &Service{
 		repo:            opts.Repo,
 		branches:        opts.Branches,
@@ -338,7 +332,7 @@ func (s *Service) DeleteTask(ctx context.Context, id int64, deleteStrmFiles bool
 	_, _ = s.ForceStopTask(ctx, id)
 	outputFolder := TaskRelDir(task.GroupDir, task.OutputFolder)
 	if deleteStrmFiles {
-		if err := DeleteTaskOutput(s.strmDir, outputFolder); err != nil {
+		if err := DeleteTaskOutput(s.outputDir(), outputFolder); err != nil {
 			return err
 		}
 	}
@@ -462,7 +456,7 @@ func (s *Service) ReplaceBaseURL(ctx context.Context, newBaseURL string) (Replac
 	if err := ValidateBaseURL(base); err != nil {
 		return ReplaceBaseURLResult{}, domain.Errorf(domain.CodeValidation, "%s", err.Error())
 	}
-	result, err := ReplaceBaseURLInFiles(s.strmDir, base)
+	result, err := ReplaceBaseURLInFiles(s.outputDir(), base)
 	if err != nil {
 		return result, err
 	}
@@ -476,7 +470,7 @@ func (s *Service) PrecheckAccountRepair(ctx context.Context, in AccountRepairPre
 	if s == nil {
 		return AccountRepairPrecheckResult{}, domain.Errorf(domain.CodeInternal, "strm service unavailable")
 	}
-	return PrecheckAccountRepair(ctx, s.files, s.strmDir, in)
+	return PrecheckAccountRepair(ctx, s.files, s.outputDir(), in)
 }
 
 func (s *Service) RepairAccountReferences(ctx context.Context, in AccountRepairInput) (AccountRepairResult, error) {
@@ -487,7 +481,7 @@ func (s *Service) RepairAccountReferences(ctx context.Context, in AccountRepairI
 	if err != nil {
 		return AccountRepairResult{}, err
 	}
-	return RepairAccountReferences(ctx, s.files, s.strmDir, s.scanBaseURL(), token, s.SignatureEnabled(), s.secret, in)
+	return RepairAccountReferences(ctx, s.files, s.outputDir(), s.scanBaseURL(), token, s.SignatureEnabled(), s.secret, in)
 }
 
 func (s *Service) MatchToken(ctx context.Context, token string) (bool, error) {
@@ -768,10 +762,21 @@ func branchRelativePath(taskPath, branchPath string) string {
 	return ""
 }
 
-// StrmDir 返回当前 STRM 输出根目录（供管理界面展示/文件管理使用）。
-func (s *Service) StrmDir() string {
+// outputDir 返回当前 STRM 输出根目录：优先读取设置项 strm_dir（运行时生效），
+// 未设置时回退到启动时计算的默认目录。
+func (s *Service) outputDir() string {
 	if s == nil {
 		return ""
 	}
+	if s.settings != nil {
+		if v := strings.TrimSpace(s.settings.String(settings.KeyStrmDir)); v != "" {
+			return v
+		}
+	}
 	return s.strmDir
+}
+
+// StrmDir 返回当前 STRM 输出根目录（供管理界面展示/文件管理使用）。
+func (s *Service) StrmDir() string {
+	return s.outputDir()
 }

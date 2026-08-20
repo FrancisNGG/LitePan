@@ -516,3 +516,36 @@ func defaultString(val, fallback string) string {
 	}
 	return val
 }
+
+type testTemplateRequest struct {
+	SeasonFolderTemplate string `json:"season_folder_template"`
+	FolderNameTemplate   string `json:"folder_name_template"`
+	FileNameTemplate     string `json:"file_name_template"`
+}
+
+type testTemplateResult struct {
+	SeasonFolder string `json:"season_folder"`
+	FolderName   string `json:"folder_name"`
+	FileName     string `json:"file_name"`
+	Parsed       any    `json:"parsed"`
+}
+
+// testMediaOrganizeTemplate 用示例媒体数据渲染三个整理模板，供前端测试 Jinja2 语法。
+func (h *Handler) testMediaOrganizeTemplate(w http.ResponseWriter, r *http.Request) {
+	if !ensureServiceReady(w, h.mediaOrganize != nil) {
+		return
+	}
+	var in testTemplateRequest
+	if r.Body != nil && r.ContentLength != 0 {
+		if err := decodeJSON(r, &in); err != nil {
+			writeErr(w, err)
+			return
+		}
+	}
+	result, err := h.mediaOrganize.RenderTestTemplates(in.SeasonFolderTemplate, in.FolderNameTemplate, in.FileNameTemplate)
+	if err != nil {
+		writeErr(w, err)
+		return
+	}
+	writeOK(w, result)
+}

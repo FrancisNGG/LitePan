@@ -5,6 +5,7 @@ import {
   fetchMediaOrganizeSettings,
   saveMediaOrganizeSettings,
   testMediaOrganizeTmdb,
+  testMediaOrganizeTemplates,
   type MediaOrganizeSettings,
 } from "@/api/mediaOrganize";
 import AppButton from "@/components/base/AppButton.vue";
@@ -321,6 +322,30 @@ function revertPanelSettings() {
   syncTagsFromSettings();
 }
 
+const tplTest = reactive({
+  season_folder: "Season {{ '{' }}{{ '{' }}season{{ '}' }}:02d{{ '}' }}{{ '}' }}",
+  folder_name: "{{ '{' }}{{ '{' }}title{{ '}' }} ({{ '{' }}{{ '{' }}year{{ '}' }}){{ '}' }}",
+  file_name: "{{ '{' }}{{ '{' }}title{{ '}' }} {{ '{' }}{{ '{' }}season_episode{{ '}' }}{{ '}' }}",
+});
+const tplTesting = ref(false);
+const tplResult = ref<{ season_folder?: string; folder_name?: string; file_name?: string } | null>(null);
+
+async function testTemplates() {
+  tplTesting.value = true;
+  tplResult.value = null;
+  try {
+    tplResult.value = await testMediaOrganizeTemplates({
+      season_folder_template: tplTest.season_folder,
+      folder_name_template: tplTest.folder_name,
+      file_name_template: tplTest.file_name,
+    });
+  } catch (e) {
+    toast.error(getApiErrorMessage(e, "模板测试失败"));
+  } finally {
+    tplTesting.value = false;
+  }
+}
+
 defineExpose(
   bindSettingsPanelExpose({
     isDirty: settingsChanged,
@@ -580,6 +605,71 @@ defineExpose(
           </SettingsRow>
         </div>
       </SettingsCard>
+
+      <SettingsCard title="整理模板测试（Jinja2）" :accent="ORGANIZE_SETTINGS_ACCENT">
+        <template #head-aside>
+          <span class="mo-tpl-tip" v-text="'支持 {{{{ title }}}} / {{% if %}} / en_title 等 MoviePilot 兼容变量'"></span>
+        </template>
+        <SettingsRow>
+          <template #info>
+            <div class="settings-row__label">
+              <span>季文件夹模板</span>
+              <SettingsHelpTooltip title="季文件夹模板说明">
+                <p>示例：<code>Season {{ '{' }}{{ '{' }}season{{ '}' }}:02d{{ '}' }}{{ '}' }}</code></p>
+                <p>留空表示不生成季文件夹。</p>
+              </SettingsHelpTooltip>
+            </div>
+          </template>
+          <template #control>
+            <AppInput v-model="tplTest.season_folder" placeholder="Season {{ '{' }}{{ '{' }}season{{ '}' }}:02d{{ '}' }}{{ '}' }}" />
+          </template>
+        </SettingsRow>
+        <SettingsRow>
+          <template #info>
+            <div class="settings-row__label">
+              <span>作品文件夹模板</span>
+              <SettingsHelpTooltip title="作品文件夹模板说明">
+                <p>示例：<code>{{ '{' }}{{ '{' }}title{{ '}' }} ({{ '{' }}{{ '{' }}year{{ '}' }}){{ '}' }}</code></p>
+              </SettingsHelpTooltip>
+            </div>
+          </template>
+          <template #control>
+            <AppInput v-model="tplTest.folder_name" placeholder="{{ '{' }}{{ '{' }}title{{ '}' }} ({{ '{' }}{{ '{' }}year{{ '}' }}){{ '}' }}" />
+          </template>
+        </SettingsRow>
+        <SettingsRow>
+          <template #info>
+            <div class="settings-row__label">
+              <span>文件模板</span>
+              <SettingsHelpTooltip title="文件模板说明">
+                <p>示例：<code>{{ '{' }}{{ '{' }}title{{ '}' }} {{ '{' }}{{ '{' }}season_episode{{ '}' }}{{ '}' }}</code></p>
+              </SettingsHelpTooltip>
+            </div>
+          </template>
+          <template #control>
+            <AppInput v-model="tplTest.file_name" placeholder="{{ '{' }}{{ '{' }}title{{ '}' }} {{ '{' }}{{ '{' }}season_episode{{ '}' }}{{ '}' }}" />
+          </template>
+        </SettingsRow>
+        <div class="mo-settings__card-head">
+          <AppButton type="button" variant="secondary" size="sm" :disabled="tplTesting" @click="testTemplates">
+            {{ tplTesting ? "测试中…" : "测试模板" }}
+          </AppButton>
+        </div>
+        <div v-if="tplResult" class="mo-tpl-result">
+          <div class="mo-tpl-result__row">
+            <span class="mo-tpl-result__label">季文件夹</span>
+            <code>{{ tplResult.season_folder || "—" }}</code>
+          </div>
+          <div class="mo-tpl-result__row">
+            <span class="mo-tpl-result__label">作品文件夹</span>
+            <code>{{ tplResult.folder_name || "—" }}</code>
+          </div>
+          <div class="mo-tpl-result__row">
+            <span class="mo-tpl-result__label">文件名</span>
+            <code>{{ tplResult.file_name || "—" }}</code>
+          </div>
+        </div>
+      </SettingsCard>
     </template>
   </div>
 </template>
@@ -589,6 +679,38 @@ defineExpose(
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+.mo-tpl-tip {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.mo-tpl-result {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  background: var(--surface-sunken);
+}
+
+.mo-tpl-result__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.mo-tpl-result__label {
+  flex: 0 0 76px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.mo-tpl-result__row code {
+  font-size: 12px;
+  word-break: break-all;
 }
 
 .mo-settings__card-head {

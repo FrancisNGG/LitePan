@@ -231,3 +231,18 @@ export function fetchMediaOrganizeSettings() {
 export function saveMediaOrganizeSettings(settings: Partial<MediaOrganizeSettings>) {
   return http.put<MediaOrganizeSettings>("/admin/media-organize/settings", settings);
 }
+
+export interface MediaOrganizeTemplateTestResult {
+  season_folder: string;
+  folder_name: string;
+  file_name: string;
+  parsed?: Record<string, unknown>;
+}
+
+export function testMediaOrganizeTemplates(payload: {
+  season_folder_template?: string;
+  folder_name_template?: string;
+  file_name_template?: string;
+}): Promise<MediaOrganizeTemplateTestResult> {
+  return http.post<MediaOrganizeTemplateTestResult>("/admin/media-organize/test-template", payload);
+}

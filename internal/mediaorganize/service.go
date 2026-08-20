@@ -914,3 +914,46 @@ func intFromAny(v any, fallback int) int {
 	}
 	return fallback
 }
+
+// RenderTestTemplates 用示例媒体数据渲染三个整理模板（Jinja2/pongo2），供前端测试。
+func (s *Service) RenderTestTemplates(seasonFolderTpl, folderNameTpl, fileNameTpl string) (map[string]any, error) {
+	// 示例媒体：一部电视剧的一集，覆盖主要变量
+	year := 2024
+	season := 1
+	episode := 5
+	parsed := rules.ParsedMedia{
+		Title:         "沙丘",
+		Year:          &year,
+		Season:        &season,
+		Episode:       &episode,
+		ScreenSize:    "2160p",
+		FrameRate:     "60fps",
+		VideoCodec:    "HEVC",
+		AudioCodec:    "DTS-HD MA",
+		AudioChannels: "7.1",
+		Source:        "BluRay",
+		ReleaseGroup:  "CHDWEB",
+		Edition:       "",
+		Type:          "tv",
+	}
+	const enTitle = "Dune"
+	const tmdbID = "438631"
+
+	ctx := rules.TemplateContext{}
+	ctx.FromParsedMedia(parsed, enTitle, tmdbID)
+
+	render := func(tpl string) string {
+		out, err := rules.RenderTemplate(tpl, ctx)
+		if err != nil {
+			return "⚠️ " + err.Error()
+		}
+		return out
+	}
+
+	return map[string]any{
+		"season_folder": render(seasonFolderTpl),
+		"folder_name":   render(folderNameTpl),
+		"file_name":     render(fileNameTpl),
+		"parsed":        parsed.ToMap(),
+	}, nil
+}

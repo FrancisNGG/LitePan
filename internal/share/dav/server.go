@@ -50,7 +50,8 @@ type Server struct {
 	handler  *webdav.Handler
 	configs  domain.ConfigRepository
 	wc       *webdavCache
-	local    bool // 本地目录模式（配置了 webdav_root 时启用）
+	settings *settings.Service
+	local    bool // 本地目录模式（启动时配置了 webdav_root 时启用，运行时动态刷新）
 }
 
 type webDAVHandlerError struct {
@@ -108,7 +109,30 @@ func New(d Deps) *Server {
 		handler:  h,
 		configs:  d.Configs,
 		wc:       wc,
+		settings: d.Settings,
 		local:    local,
+	}
+}
+
+// webDAVRoot 返回当前 webdav_root 设置（运行时动态读取，允许管理界面修改后立即生效）。
+func (s *Server) webDAVRoot() string {
+	if s.settings == nil {
+		return ""
+	}
+	return strings.TrimSpace(s.settings.String(settings.KeyWebDAVRoot))
+}
+
+// localHandler 返回绑定当前 webdav_root 的本地目录 handler；root 变化时重建。
+func (s *Server) localHandler(root string) *webdav.Handler {
+	return &webdav.Handler{
+		Prefix:     mountPrefix,
+		FileSystem: &localFileSystem{root: root},
+		LockSystem: webdav.NewMemLS(),
+		Logger: func(r *http.Request, err error) {
+			if err != nil && s.log.Enabled(r.Context(), slog.LevelDebug) {
+				s.log.Debug("webdav-local", "method", r.Method, "path", r.URL.Path, "err", err)
+			}
+		},
 	}
 }
 
@@ -124,9 +148,10 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !s.authenticate(w, r) {
 		return
 	}
-	if s.local {
+	if root := s.webDAVRoot(); root != "" {
 		// 本地目录模式：跳过网盘专属逻辑，直接交给标准 webdav.Handler（本地文件系统）
-		s.handler.ServeHTTP(w, r)
+		// 运行时动态读取设置，root 变化立即生效
+		s.localHandler(root).ServeHTTP(w, r)
 		return
 	}
 	if r.Method == http.MethodGet || r.Method == http.MethodHead {
