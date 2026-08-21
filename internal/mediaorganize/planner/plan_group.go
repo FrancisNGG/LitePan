@@ -146,7 +146,7 @@ func (p *Planner) planGroupWithMatch(
 		newFolderName = rules.SanitizeFilename(dirs[0])
 	}
 	if newFolderName == "" {
-		newFolderName = rules.SanitizeFilename(rules.BuildFolderNameTpl(folderInfo, tmdbOriginal, tmdbID, p.folderNameTpl))
+		newFolderName = rules.SanitizeFilename(rules.BuildFolderName(folderInfo, tmdbID))
 	}
 	displayTitle := rules.BuildDisplayTitle(tmdbTitle, tmdbOriginal, title)
 
@@ -339,7 +339,7 @@ func (p *Planner) planGroupWithMatch(
 			base = stripExt(rules.SanitizeFilename(filename), ext)
 		}
 		if base == "" {
-			base = rules.BuildTargetFilenameTpl(fileInfo, tmdbOriginal, p.marker, tmdbID, p.fileNameTpl)
+			base = rules.BuildTargetFilename(fileInfo, p.marker, tmdbID)
 		}
 		if base == "" {
 			p.skip(entry.item, "无法生成新名")

@@ -42,20 +42,6 @@ func BuildFolderName(parsed ParsedMedia, tmdbID string) string {
 	return strings.TrimSpace(strings.Join(parts, " "))
 }
 
-// BuildFolderNameTpl 用 pongo2/Jinja2 模板构建文件夹名（支持 en_title/if/过滤器）
-// tpl 为空时退回默认行为。返回空串表示模板渲染失败或结果为空。
-func BuildFolderNameTpl(parsed ParsedMedia, enTitle, tmdbID, tpl string) string {
-	if strings.TrimSpace(tpl) == "" {
-		return BuildFolderName(parsed, tmdbID)
-	}
-	ctx := TemplateContext{}
-	ctx.FromParsedMedia(parsed, enTitle, tmdbID)
-	name, err := RenderTemplate(tpl, ctx)
-	if err != nil {
-		return ""
-	}
-	return name
-}
 
 // BuildTargetFilename 用旧逻辑构建目标文件名：Title (Year) [marker] SxxExx
 func BuildTargetFilename(parsed ParsedMedia, marker, tmdbID string) string {
@@ -91,19 +77,6 @@ func BuildTargetFilename(parsed ParsedMedia, marker, tmdbID string) string {
 	return strings.Join(parts, " ")
 }
 
-// BuildTargetFilenameTpl 用 pongo2/Jinja2 模板构建目标文件名（支持 en_title/if/过滤器）
-func BuildTargetFilenameTpl(parsed ParsedMedia, enTitle, marker, tmdbID, tpl string) string {
-	if strings.TrimSpace(tpl) == "" {
-		return BuildTargetFilename(parsed, marker, tmdbID)
-	}
-	ctx := TemplateContext{}
-	ctx.FromParsedMedia(parsed, enTitle, tmdbID)
-	name, err := RenderTemplate(tpl, ctx)
-	if err != nil {
-		return ""
-	}
-	return name
-}
 
 func BuildDisplayTitle(tmdbTitle, tmdbOriginal, fallbackTitle string) string {
 	if tmdbTitle == "" {

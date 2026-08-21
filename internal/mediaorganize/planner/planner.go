@@ -59,8 +59,6 @@ type Planner struct {
 	tmdbInterval      time.Duration
 	tmdbAvailable     bool
 	seasonFolderTpl   string
-	folderNameTpl     string
-	fileNameTpl       string
 	movieNamingTpl    string // MoviePilot 式完整路径模板（电影，Jinja2）
 	tvNamingTpl       string // MoviePilot 式完整路径模板（电视剧，Jinja2）
 	categoryRules     rules.CategoryRules // MoviePilot 风格分类规则（mo_category_map）
@@ -177,8 +175,6 @@ func (p *Planner) loadSettings() {
 	if p.seasonFolderTpl == "" {
 		p.seasonFolderTpl = "Season {season:02d}"
 	}
-	p.folderNameTpl = strings.TrimSpace(p.cfg.FolderNameTemplate)
-	p.fileNameTpl = strings.TrimSpace(p.cfg.FileNameTemplate)
 	p.movieNamingTpl = strSetting(p.settings, "mo_movie_naming_format", "")
 	p.tvNamingTpl = strSetting(p.settings, "mo_tv_naming_format", "")
 	p.categoryRules = rules.ParseCategoryRules(strSetting(p.settings, "mo_category_map", ""))

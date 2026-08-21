@@ -45,8 +45,6 @@ type TaskConfig struct {
 	OverwriteExisting    bool
 	Recursive            bool
 	SeasonFolderTemplate string
-	FolderNameTemplate   string
-	FileNameTemplate     string
 	FileExtensions       string
 	MetadataExtensions   string
 	MoveMediaOnly        bool // move 模式下仅移动媒体文件，不跟随字幕/nfo/海报等关联文件

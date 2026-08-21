@@ -12,8 +12,6 @@ func NormalizeTaskConfig(config map[string]any) map[string]any {
 		"media_type":             "auto",
 		"rename_marker":          "",
 		"season_folder_template": "Season {season:02d}",
-		"folder_name_template":   "",
-		"file_name_template":     "",
 		"use_tmdb":               true,
 		"overwrite_existing":     false,
 		"recursive":              true,
