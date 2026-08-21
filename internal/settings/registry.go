@@ -18,7 +18,6 @@ const (
 	KeyBuiltinOfflineMaxSpeedMB    = "builtin_offline_max_speed_mb"
 	KeyBuiltinOfflineBTPort        = "builtin_offline_bt_port"
 	KeyWebDAVCacheEnabled          = "webdav_cache_enabled"
-	KeyWebDAVRoot                  = "webdav_root"
 	KeyFuseReadCacheEnabled        = "fuse_read_cache_enabled"
 	KeyFuseReadCacheMaxGB          = "fuse_read_cache_max_gb"
 	KeyFuseReadCacheRetentionDays  = "fuse_read_cache_retention_days"
@@ -36,7 +35,6 @@ const (
 	KeyFnosProxyPort               = "fnos_proxy_port"
 	KeyFnosStrmPathMaps            = "fnos_strm_path_maps"
 	KeyStrmToken                   = "strm_token"
-	KeyStrmDir                     = "strm_dir"
 	KeyStrmBaseURL                 = "strm_base_url"
 	KeyStrmSignatureEnabled        = "strm_signature_enabled"
 	KeyStrmDefaultScanInterval     = "strm_default_scan_interval"
@@ -150,7 +148,6 @@ func defaultSpecs() []Spec {
 		intSpec(KeyBuiltinOfflineMaxSpeedMB, "performance", "内置离线限速", "HTTP 与 Magnet 共用的全局下载限速；填 0 表示不限速。", "0", "MB/s", 0, 10240),
 		intSpec(KeyBuiltinOfflineBTPort, "performance", "磁力下载端口", "用于磁力/BT 下载连接其他节点；Docker Bridge 网络需同时映射同一 TCP/UDP 端口，Host 网络无需映射。填 0 表示随机端口，修改后立即应用。", "42069", "", 0, 65535),
 		boolSpec(KeyWebDAVCacheEnabled, "performance", "WebDAV 路径与 PROPFIND 缓存", "开启后缓存 WebDAV 路径解析与 PROPFIND 响应，减少客户端列目录时的网盘 API 调用。", "true"),
-		stringSpec(KeyWebDAVRoot, "webdav", "WebDAV 根目录", "WebDAV 挂载根目录（本地绝对路径，如 STRM 输出目录）。留空时保持原行为：以网盘账号为根。配置后 /dav 直接暴露该本地目录，适合给 Infuse/VidHub 等客户端读取 STRM 文件。", ""),
 		boolSpec(KeyFuseReadCacheEnabled, "performance", "FUSE 读缓存", "开启后 FUSE 读取过的文件块会写入本地磁盘，与元数据缓存无关。在「文件共享 → 本地挂载」页配置。", "false"),
 		intSpec(KeyFuseReadCacheMaxGB, "performance", "FUSE 读缓存容量上限", "磁盘块缓存最大占用，在「文件共享 → 本地挂载」页配置。", "10", "GB", 1, 500),
 		intSpec(KeyFuseReadCacheRetentionDays, "performance", "FUSE 读缓存保留天数", "超过该天数的缓存块会被删除，在「文件共享 → 本地挂载」页配置。", "7", "天", 1, 90),
@@ -175,7 +172,6 @@ func defaultSpecs() []Spec {
 		stringSpec(KeyFnosProxyPort, "fnos", "反代端口", "可留空。填写并启用后，LitePan 会在该端口启动飞牛影视反代服务。", ""),
 		stringSpec(KeyFnosStrmPathMaps, "fnos", "飞牛 STRM 目录", "填写 Docker 中映射到 /app/strm 的左边路径。例：/vol1/.../LitePanGO:/app/strm → 填 /vol1/.../LitePanGO。两边相同可留空。", ""),
 		stringSpec(KeyStrmToken, "strm", "STRM 播放令牌", "STRM 播放路径鉴权令牌，请在系统设置「API 秘钥」中管理。", ""),
-		stringSpec(KeyStrmDir, "strm", "STRM 输出目录", "STRM 文件输出目录（绝对路径或相对于数据目录）。留空时使用默认 dataDir 旁 strm 目录。", ""),
 		stringSpec(KeyStrmBaseURL, "strm", "STRM 基础地址", "生成本地 .strm 时使用的站点基址（例如 https://example.com）。留空时使用当前服务监听地址。", ""),
 		boolSpec(KeyStrmSignatureEnabled, "strm", "启用 STRM 路径签名", "开启后 /api/strm/play 路径必须携带有效签名。", "false"),
 		intSpec(KeyStrmDefaultScanInterval, "strm", "STRM 默认扫描间隔", "新建任务未指定扫描间隔时使用。", "360", "分钟", 1, 1440),

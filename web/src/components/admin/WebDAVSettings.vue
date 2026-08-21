@@ -27,7 +27,6 @@ useAdminPageLoading("share", loading);
 
 const { settings, isDirty, isFieldChanged, applyBaseline, revert: revertSettings } = useSettingsForm({
   webdav_enabled: false,
-  webdav_root: "/app/strm",
 });
 
 const webdavServerUrl = computed(() => {
@@ -35,9 +34,8 @@ const webdavServerUrl = computed(() => {
   return `${window.location.origin.replace(/\/$/, "")}/dav`;
 });
 
-function applySettings(data: { webdav_enabled?: boolean; webdav_root?: string }) {
-  // 未配置过（undefined）时默认填充 /app/strm；已配置为空字符串时保持空（网盘模式）
-  applyBaseline({ webdav_enabled: data.webdav_enabled !== false, webdav_root: data.webdav_root ?? "/app/strm" });
+function applySettings(data: { webdav_enabled?: boolean }) {
+  applyBaseline({ webdav_enabled: data.webdav_enabled !== false });
 }
 
 async function loadSettings() {
@@ -58,9 +56,8 @@ async function saveSettings(silent = false) {
   try {
     await updateWebDAVConfig({
       webdav_enabled: settings.webdav_enabled,
-      webdav_root: settings.webdav_root, // 空字符串 = 回到网盘模式
     });
-    applyBaseline({ webdav_enabled: settings.webdav_enabled, webdav_root: settings.webdav_root });
+    applyBaseline({ webdav_enabled: settings.webdav_enabled });
     if (!silent) toast.success("WebDAV 设置已保存");
   } catch (e) {
     toast.error(getApiErrorMessage(e, "保存失败"));
@@ -96,21 +93,6 @@ defineExpose({
           </template>
           <template #control>
             <SettingsBoolSegment v-model="settings.webdav_enabled" label="启用 WebDAV 服务" />
-          </template>
-        </SettingsRow>
-
-        <SettingsRow :show-changed-badge="true" :changed="isFieldChanged('webdav_root')">
-          <template #info>
-            <div class="settings-row__label">
-              <span>WebDAV 根目录</span>
-              <SettingsHelpTooltip title="WebDAV 根目录说明">
-                <p>WebDAV 挂载根目录（本地绝对路径）。填写 <code>/app/strm</code>（STRM 输出目录）等路径时，<code>/dav</code> 直接暴露该本地目录，适合 Infuse/VidHub 等客户端读取 STRM 文件。</p>
-                <p>留空时回到网盘模式（以网盘账号为根）；默认值 <code>/app/strm</code> 仅为输入框预填，未保存则不会生效。</p>
-              </SettingsHelpTooltip>
-            </div>
-          </template>
-          <template #control>
-            <AppInput v-model="settings.webdav_root" placeholder="留空 = 网盘模式；如 /app/strm" />
           </template>
         </SettingsRow>
       </template>

@@ -30,7 +30,6 @@ export interface SystemConfig {
   log_retention_days?: number;
   auth_active_refresh_enabled?: boolean;
   webdav_enabled?: boolean;
-  webdav_root?: string;
 }
 
 export interface UpdateCredentialsRequest {
@@ -50,7 +49,6 @@ export interface UpdateCredentialsRequest {
 
 export interface WebDAVConfigRequest {
   webdav_enabled?: boolean;
-  webdav_root?: string;
 }
 
 export interface ResetPasswordResult {

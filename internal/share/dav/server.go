@@ -28,7 +28,6 @@ const (
 	configAdminPassword = "admin_password"
 	configWebDAVEnabled = "webdav_enabled"
 	mountPrefix         = "/dav"
-	defaultWebDAVRoot   = "/app/strm"
 )
 
 type Deps struct {
@@ -51,8 +50,6 @@ type Server struct {
 	handler  *webdav.Handler
 	configs  domain.ConfigRepository
 	wc       *webdavCache
-	settings *settings.Service
-	local    bool // 本地目录模式（启动时配置了 webdav_root 时启用，运行时动态刷新）
 }
 
 type webDAVHandlerError struct {
@@ -79,19 +76,9 @@ func New(d Deps) *Server {
 		tempRegistry: d.TempRegistry,
 		log:          log,
 	}
-	// 本地目录模式：配置了 webdav_root 时，/dav 直接暴露该本地目录（如 STRM 目录），供 Infuse 等客户端读取
-	var fsys webdav.FileSystem = fs
-	local := false
-	if d.Settings != nil {
-		if root := strings.TrimSpace(d.Settings.String(settings.KeyWebDAVRoot)); root != "" {
-			fsys = &localFileSystem{root: root}
-			local = true
-			log.Info("webdav 本地目录模式", "root", root)
-		}
-	}
 	h := &webdav.Handler{
 		Prefix:     mountPrefix,
-		FileSystem: fsys,
+		FileSystem: fs,
 		LockSystem: webdav.NewMemLS(),
 		Logger: func(r *http.Request, err error) {
 			if captured, ok := r.Context().Value(webDAVHandlerErrorKey{}).(*webDAVHandlerError); ok {
@@ -110,35 +97,6 @@ func New(d Deps) *Server {
 		handler:  h,
 		configs:  d.Configs,
 		wc:       wc,
-		settings: d.Settings,
-		local:    local,
-	}
-}
-
-// webDAVRoot 返回当前 webdav_root 设置（每次请求实时读取 db，保存后立即生效）。
-// 未配置过时默认使用 STRM 输出目录（与前端默认值一致）；显式配置为空字符串时回到网盘模式。
-func (s *Server) webDAVRoot(ctx context.Context) string {
-	if s.configs == nil {
-		return defaultWebDAVRoot
-	}
-	v, ok, err := s.configs.Get(ctx, settings.KeyWebDAVRoot)
-	if err != nil || !ok {
-		return defaultWebDAVRoot
-	}
-	return strings.TrimSpace(v)
-}
-
-// localHandler 返回绑定当前 webdav_root 的本地目录 handler；root 变化时重建。
-func (s *Server) localHandler(root string) *webdav.Handler {
-	return &webdav.Handler{
-		Prefix:     mountPrefix,
-		FileSystem: &localFileSystem{root: root},
-		LockSystem: webdav.NewMemLS(),
-		Logger: func(r *http.Request, err error) {
-			if err != nil && s.log.Enabled(r.Context(), slog.LevelDebug) {
-				s.log.Debug("webdav-local", "method", r.Method, "path", r.URL.Path, "err", err)
-			}
-		},
 	}
 }
 
@@ -152,18 +110,6 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !s.authenticate(w, r) {
-		return
-	}
-	if root := s.webDAVRoot(r.Context()); root != "" {
-		// 本地目录模式：跳过网盘专属逻辑，直接暴露本地目录。
-		// GET/HEAD 支持目录浏览与文件下载；其余 WebDAV 方法交给标准 handler。
-		// 运行时动态读取设置，root 变化立即生效。
-		if r.Method == http.MethodGet || r.Method == http.MethodHead {
-			if s.serveLocalRead(w, r, root) {
-				return
-			}
-		}
-		s.localHandler(root).ServeHTTP(w, r)
 		return
 	}
 	if r.Method == http.MethodGet || r.Method == http.MethodHead {
