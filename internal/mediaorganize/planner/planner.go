@@ -188,32 +188,6 @@ func (p *Planner) namingTplFor(isTV bool) string {
 	return p.movieNamingTpl
 }
 
-// renderNaming 渲染 MoviePilot 式完整路径模板（Jinja2），按 / 拆分为目录段和文件名段。
-// 返回 (目录段, 文件名段, 是否成功)。未配置模板或渲染失败时 ok=false。
-func (p *Planner) renderNaming(isTV bool, parsed rules.ParsedMedia, enTitle, tmdbID, fileExt, originalName string) (dirs []string, filename string, ok bool) {
-	tpl := p.namingTplFor(isTV)
-	if strings.TrimSpace(tpl) == "" {
-		return nil, "", false
-	}
-	ctx := rules.TemplateContext{}
-	ctx.FromParsedMedia(parsed, enTitle, tmdbID)
-	ctx.FileExt = fileExt
-	ctx.OriginalName = originalName
-	out, err := rules.RenderTemplate(tpl, ctx)
-	if err != nil {
-		return nil, "", false
-	}
-	out = strings.TrimSpace(out)
-	if out == "" {
-		return nil, "", false
-	}
-	parts := strings.Split(out, "/")
-	if len(parts) == 0 {
-		return nil, "", false
-	}
-	return parts[:len(parts)-1], parts[len(parts)-1], true
-}
-
 // resolveNamingParts 渲染 MoviePilot 式完整路径模板，拆分为目录段和文件名段。
 // ext 为不含点的扩展名（如 mkv），会映射到模板的 fileExt 变量。
 func (p *Planner) resolveNamingParts(isTV bool, parsed rules.ParsedMedia, enTitle, tmdbID, ext, originalName string) (dirs []string, filename string, ok bool) {

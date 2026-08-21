@@ -326,7 +326,7 @@ func (s *Service) DeleteTask(ctx context.Context, id int64, deleteStrmFiles bool
 	_, _ = s.ForceStopTask(ctx, id)
 	outputFolder := TaskRelDir(task.GroupDir, task.OutputFolder)
 	if deleteStrmFiles {
-		if err := DeleteTaskOutput(s.outputDir(), outputFolder); err != nil {
+		if err := DeleteTaskOutput(s.strmDir, outputFolder); err != nil {
 			return err
 		}
 	}
@@ -449,7 +449,7 @@ func (s *Service) ReplaceBaseURL(ctx context.Context, newBaseURL string) (Replac
 	if err := ValidateBaseURL(base); err != nil {
 		return ReplaceBaseURLResult{}, domain.Errorf(domain.CodeValidation, "%s", err.Error())
 	}
-	result, err := ReplaceBaseURLInFiles(s.outputDir(), base)
+	result, err := ReplaceBaseURLInFiles(s.strmDir, base)
 	if err != nil {
 		return result, err
 	}
@@ -463,7 +463,7 @@ func (s *Service) PrecheckAccountRepair(ctx context.Context, in AccountRepairPre
 	if s == nil {
 		return AccountRepairPrecheckResult{}, domain.Errorf(domain.CodeInternal, "strm service unavailable")
 	}
-	return PrecheckAccountRepair(ctx, s.files, s.outputDir(), in)
+	return PrecheckAccountRepair(ctx, s.files, s.strmDir, in)
 }
 
 func (s *Service) RepairAccountReferences(ctx context.Context, in AccountRepairInput) (AccountRepairResult, error) {
@@ -474,7 +474,7 @@ func (s *Service) RepairAccountReferences(ctx context.Context, in AccountRepairI
 	if err != nil {
 		return AccountRepairResult{}, err
 	}
-	return RepairAccountReferences(ctx, s.files, s.outputDir(), s.scanBaseURL(), token, s.SignatureEnabled(), s.secret, in)
+	return RepairAccountReferences(ctx, s.files, s.strmDir, s.scanBaseURL(), token, s.SignatureEnabled(), s.secret, in)
 }
 
 func (s *Service) MatchToken(ctx context.Context, token string) (bool, error) {
@@ -753,17 +753,4 @@ func branchRelativePath(taskPath, branchPath string) string {
 		return strings.TrimPrefix(branchPath, prefix)
 	}
 	return ""
-}
-
-// outputDir 返回 STRM 输出根目录（启动时确定，固定为 /app/strm 或环境变量指定值）。
-func (s *Service) outputDir() string {
-	if s == nil {
-		return ""
-	}
-	return s.strmDir
-}
-
-// StrmDir 返回当前 STRM 输出根目录（供管理界面展示/文件管理使用）。
-func (s *Service) StrmDir() string {
-	return s.outputDir()
 }
