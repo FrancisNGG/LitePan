@@ -28,6 +28,7 @@ const (
 	configAdminPassword = "admin_password"
 	configWebDAVEnabled = "webdav_enabled"
 	mountPrefix         = "/dav"
+	defaultWebDAVRoot   = "/app/strm"
 )
 
 type Deps struct {
@@ -115,14 +116,14 @@ func New(d Deps) *Server {
 }
 
 // webDAVRoot 返回当前 webdav_root 设置（每次请求实时读取 db，保存后立即生效）。
-// 留空时保持原行为：以网盘账号为根（网盘模式）。
+// 未配置过时默认使用 STRM 输出目录（与前端默认值一致）；显式配置为空字符串时回到网盘模式。
 func (s *Server) webDAVRoot(ctx context.Context) string {
 	if s.configs == nil {
-		return ""
+		return defaultWebDAVRoot
 	}
 	v, ok, err := s.configs.Get(ctx, settings.KeyWebDAVRoot)
 	if err != nil || !ok {
-		return ""
+		return defaultWebDAVRoot
 	}
 	return strings.TrimSpace(v)
 }

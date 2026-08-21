@@ -537,7 +537,8 @@ func (s *Service) credentialState(ctx context.Context) security.CredentialState 
 }
 
 func (s *Service) publicIndexEnabled(ctx context.Context) bool {
-	return s.configBool(ctx, KeyPublicIndexEnabled, true)
+	// 默认不允许匿名访问（安全默认）；显式开启后才开放
+	return s.configBool(ctx, KeyPublicIndexEnabled, false)
 }
 
 func (s *Service) webdavEnabled(ctx context.Context) bool {
@@ -545,7 +546,15 @@ func (s *Service) webdavEnabled(ctx context.Context) bool {
 }
 
 func (s *Service) webdavRoot(ctx context.Context) string {
-	return s.configString(ctx, KeyWebDAVRoot, "")
+	// 未配置过时默认 STRM 目录（与前端默认值一致）；显式配置为空字符串时回到网盘模式
+	if s.configs == nil {
+		return "/app/strm"
+	}
+	v, ok, err := s.configs.Get(ctx, KeyWebDAVRoot)
+	if err != nil || !ok {
+		return "/app/strm"
+	}
+	return strings.TrimSpace(v)
 }
 
 func (s *Service) headerEffectsEnabled(ctx context.Context) bool {
