@@ -287,25 +287,3 @@ export function replaceStrmBaseURL(newBaseURL: string) {
     new_base_url: newBaseURL,
   });
 }
-
-export interface StrmFileEntry {
-  name: string;
-  path: string;
-  size: number;
-  mod_time: string;
-  is_dir: boolean;
-}
-
-export function fetchStrmFiles(params: { dir?: string; recurse?: boolean }) {
-  const q = new URLSearchParams();
-  if (params.dir) q.set("dir", params.dir);
-  if (params.recurse) q.set("recurse", "1");
-  const qs = q.toString();
-  return http.get<StrmFileEntry[]>(`/admin/strm/files${qs ? `?${qs}` : ""}`);
-}
-
-export function deleteStrmFile(path: string) {
-  return http.del<{ deleted: string }>("/admin/strm/files", {
-    path,
-  });
-}

@@ -17,7 +17,6 @@ import SettingsBoolSegment from "@/components/admin/SettingsBoolSegment.vue";
 import SettingsCard from "@/components/admin/SettingsCard.vue";
 import SettingsHelpTooltip from "@/components/admin/SettingsHelpTooltip.vue";
 import SettingsRow from "@/components/admin/SettingsRow.vue";
-import StrmFilesPanel from "@/components/admin/StrmFilesPanel.vue";
 import { confirm } from "@/composables/useConfirm";
 import { bindSettingsPanelExpose, useSettingsForm } from "@/composables/useSettingsForm";
 import { useSettingsLoad } from "@/composables/useSettingsLoad";
@@ -461,8 +460,6 @@ defineExpose(
           </template>
         </SettingsRow>
       </SettingsCard>
-
-      <StrmFilesPanel />
     </template>
   </div>
 </template>

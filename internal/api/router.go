@@ -273,8 +273,6 @@ func NewRouter(d Deps) http.Handler {
 					r.Put("/tasks/{id}/branches/{branch_id}", h.updateStrmBranch)
 					r.Delete("/tasks/{id}/branches/{branch_id}", h.deleteStrmBranch)
 					r.Get("/settings", h.getStrmSettings)
-					r.Get("/files", h.listStrmFiles)
-					r.Delete("/files", h.deleteStrmFile)
 					r.Put("/settings", h.updateStrmSettings)
 					r.Post("/replace-base-url", h.replaceStrmBaseURL)
 					r.Post("/tasks/precheck-account-repair", h.precheckStrmAccountRepair)
