@@ -101,10 +101,10 @@ export interface MediaOrganizeSettings {
   align_media_tags: boolean;
   max_works_per_run: number;
   overwrite_existing: boolean;
-  movie_naming_format: string;
-  tv_naming_format: string;
-  category_map: string;
-  release_groups: string;
+  movie_naming_format?: string;
+  tv_naming_format?: string;
+  category_map?: string;
+  release_groups?: string;
 }
 
 export type MediaOrganizeTaskInput = {
@@ -250,5 +250,18 @@ export function testMediaOrganizeTemplates(payload: {
   tv_naming_template?: string;
   filename?: string;
 }): Promise<MediaOrganizeTemplateTestResult> {
-  return http.post<MediaOrganizeTemplateTestResult>("/admin/media-organize/test-template", payload);
+  return http.post<MediaOrganizeTemplateTestResult>("/admin/tools/media-enhance/test-template", payload);
+}
+
+export interface MediaEnhanceStatus {
+  enabled: boolean;
+  available: boolean;
+}
+
+export function fetchMediaEnhanceStatus() {
+  return http.get<MediaEnhanceStatus>("/admin/tools/media-enhance/status");
+}
+
+export function setMediaEnhanceEnabled(enabled: boolean) {
+  return http.post<{ enabled: boolean }>("/admin/tools/media-enhance/enabled", { enabled });
 }

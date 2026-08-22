@@ -296,6 +296,11 @@ func NewRouter(d Deps) http.Handler {
 					r.Put("/config", h.updateAIOrganizeConfig)
 					r.Post("/test", h.testAIOrganizeConfig)
 				})
+				r.Route("/tools/media-enhance", func(r chi.Router) {
+					r.Get("/status", h.getMediaEnhanceStatus)
+					r.Post("/enabled", h.setMediaEnhanceEnabled)
+					r.Post("/test-template", h.testMediaOrganizeTemplate)
+				})
 				r.Route("/tools/quarktv", func(r chi.Router) {
 					r.Get("/status", h.getQuarkTVStatus)
 					r.Post("/enabled", h.setQuarkTVEnabled)

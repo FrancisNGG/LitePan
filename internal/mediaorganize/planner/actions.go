@@ -77,20 +77,28 @@ func (p *Planner) ensureWorkDirAction(key groupKey, workDirName string, items []
 	if promotedMoveRef != "" {
 		return promotedMoveRef
 	}
-	// MoviePilot 一级类型目录（get_dest_dir：need_type_folder 且未手动指定媒体类型时）
-	// 媒体库根/电影/... 或 媒体库根/电视剧/...
-	parentRef := p.targetRootID
-	if parentRef == "" {
-		parentRef = p.parentID
-	}
-	typeFolder := "电影"
-	if isTV {
-		typeFolder = "电视剧"
-	}
-	parentRef = p.ensureDirAction(parentRef, typeFolder)
-	// MoviePilot 二级分类目录（category.yaml 匹配结果，如 华语电影/国产剧）
-	if strings.TrimSpace(categoryName) != "" {
-		parentRef = p.ensureDirAction(parentRef, categoryName)
+	var parentRef string
+	if p.enh == nil {
+		// 增强关闭（默认）：官方逻辑——按源目录祖先链构建分类父目录
+		categoryAncestors := p.categoryAncestors(key, items)
+		parentRef = p.buildTargetCategoryParentRef(categoryAncestors)
+	} else {
+		// 增强开启：类型目录 + 分类目录
+		// 一级类型目录（get_dest_dir：need_type_folder 且未手动指定媒体类型时）
+		// 媒体库根/电影/... 或 媒体库根/电视剧/...
+		parentRef = p.targetRootID
+		if parentRef == "" {
+			parentRef = p.parentID
+		}
+		typeFolder := "电影"
+		if isTV {
+			typeFolder = "电视剧"
+		}
+		parentRef = p.ensureDirAction(parentRef, typeFolder)
+		// 二级分类目录（category 匹配结果，如 华语电影/国产剧）
+		if strings.TrimSpace(categoryName) != "" {
+			parentRef = p.ensureDirAction(parentRef, categoryName)
+		}
 	}
 	ref := p.ensureDirAction(parentRef, workDirName)
 	srcDirID := key.dirID

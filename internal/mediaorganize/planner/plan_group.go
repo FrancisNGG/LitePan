@@ -142,8 +142,10 @@ func (p *Planner) planGroupWithMatch(
 	if originalName == "" && len(items) > 0 {
 		originalName = items[0].item.Name
 	}
-	if dirs, _, ok := p.resolveNamingParts(isTV, folderInfo, tmdbOriginal, tmdbID, "", originalName); ok && len(dirs) > 0 {
-		newFolderName = rules.SanitizeFilename(dirs[0])
+	if p.enh != nil {
+		if dirs, _, ok := p.enh.ResolveNamingParts(isTV, folderInfo, tmdbOriginal, tmdbID, "", originalName); ok && len(dirs) > 0 {
+			newFolderName = rules.SanitizeFilename(dirs[0])
+		}
 	}
 	if newFolderName == "" {
 		newFolderName = rules.SanitizeFilename(rules.BuildFolderName(folderInfo, tmdbID))
@@ -234,7 +236,11 @@ func (p *Planner) planGroupWithMatch(
 
 	targetWorkRef := ""
 	if p.actionType == "move" {
-		targetWorkRef = p.ensureWorkDirAction(key, newFolderName, items, promotedMoveRef, p.categoryRules.MatchCategory(isTV, tmdbInfo.raw), isTV)
+		categoryName := ""
+		if p.enh != nil {
+			categoryName = p.enh.MatchCategory(isTV, tmdbInfo.raw)
+		}
+		targetWorkRef = p.ensureWorkDirAction(key, newFolderName, items, promotedMoveRef, categoryName, isTV)
 	}
 
 	seasonDirCache := map[int]string{}
@@ -319,7 +325,7 @@ func (p *Planner) planGroupWithMatch(
 			}
 		}
 		mediaInfoTag := ""
-		if p.namingTplFor(isTV) == "" {
+		if p.enh == nil || p.enh.NamingTplFor(isTV) == "" {
 			mediaInfoTag = rules.BuildMediaInfoTags(parsedForTag, p.mediaTagOrder)
 		}
 
@@ -335,8 +341,10 @@ func (p *Planner) planGroupWithMatch(
 			fileInfo.Type = "movie"
 		}
 		base := ""
-		if _, filename, ok := p.resolveNamingParts(isTV, fileInfo, tmdbOriginal, tmdbID, ext, entry.item.Name); ok && filename != "" {
-			base = stripExt(rules.SanitizeFilename(filename), ext)
+		if p.enh != nil {
+			if _, filename, ok := p.enh.ResolveNamingParts(isTV, fileInfo, tmdbOriginal, tmdbID, ext, entry.item.Name); ok && filename != "" {
+				base = stripExt(rules.SanitizeFilename(filename), ext)
+			}
 		}
 		if base == "" {
 			base = rules.BuildTargetFilename(fileInfo, p.marker, tmdbID)

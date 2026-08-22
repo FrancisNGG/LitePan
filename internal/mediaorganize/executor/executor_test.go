@@ -199,7 +199,7 @@ func TestApplyMovesMetadataFollowers(t *testing.T) {
 			Recursive:          true,
 			MetadataExtensions: "nfo;jpg;png",
 		},
-		planner.Settings{"mo_tmdb_api_key": "test-key"},
+		planner.Settings{"mo_tmdb_api_key": "test-key", "mo_enhanced_enabled": true},
 		"task-test",
 		tmdb,
 		func(string) {},

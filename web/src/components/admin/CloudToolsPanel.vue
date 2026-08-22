@@ -12,6 +12,7 @@ import AppButton from "@/components/base/AppButton.vue";
 import AIToolCard from "@/components/admin/AIToolCard.vue";
 import CloudToolCard from "@/components/admin/CloudToolCard.vue";
 import LocalUploadToolCard from "@/components/admin/LocalUploadToolCard.vue";
+import MediaEnhanceToolCard from "@/components/admin/MediaEnhanceToolCard.vue";
 import ProxyToolsPanel from "@/components/admin/ProxyToolsPanel.vue";
 import QuarkTVToolCard from "@/components/admin/QuarkTVToolCard.vue";
 import "@/styles/admin-shared.css";
@@ -22,7 +23,7 @@ const emit = defineEmits<{ "update:searchOpen": [boolean] }>();
 const { runLoad } = useSettingsLoad();
 
 const searchQuery = ref("");
-const cardTitles = ["Emby 反代", "飞牛影视反代", "115 网盘 STRM 增强方案", "从服务器上传", "AI 辅助增强工具", "夸克 STRM 播放接管"];
+const cardTitles = ["Emby 反代", "飞牛影视反代", "115 网盘 STRM 增强方案", "从服务器上传", "AI 辅助增强工具", "夸克 STRM 播放接管", "媒体整理增强"];
 
 function matches(title: string) {
   const q = searchQuery.value.trim().toLowerCase();
@@ -157,6 +158,8 @@ async function clearCache() {
       <AIToolCard :search-query="searchQuery" />
 
       <QuarkTVToolCard :search-query="searchQuery" />
+
+      <MediaEnhanceToolCard :search-query="searchQuery" />
     </div>
     <div v-if="searchOpen && !hasMatch" class="tool-search__empty">没有找到相关工具</div>
   </div>

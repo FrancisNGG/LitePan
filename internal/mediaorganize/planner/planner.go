@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"litepan/internal/domain"
+	"litepan/internal/mediaorganize/enhance"
 	"litepan/internal/mediaorganize/moplan"
 	"litepan/internal/mediaorganize/recognition"
 	"litepan/internal/mediaorganize/rules"
@@ -59,9 +60,7 @@ type Planner struct {
 	tmdbInterval      time.Duration
 	tmdbAvailable     bool
 	seasonFolderTpl   string
-	movieNamingTpl    string // MoviePilot 式完整路径模板（电影，Jinja2）
-	tvNamingTpl       string // MoviePilot 式完整路径模板（电视剧，Jinja2）
-	categoryRules     rules.CategoryRules // MoviePilot 风格分类规则（mo_category_map）
+	enh               *enhance.Enhancer // 媒体整理增强（nil=未启用，走官方逻辑）
 	tvSeasonsCache    map[string][]map[string]any
 	recognition       recognition.Enhancer
 	deferred          []deferredGroup
@@ -175,57 +174,15 @@ func (p *Planner) loadSettings() {
 	if p.seasonFolderTpl == "" {
 		p.seasonFolderTpl = "Season {season:02d}"
 	}
-	p.movieNamingTpl = strSetting(p.settings, "mo_movie_naming_format", "")
-	p.tvNamingTpl = strSetting(p.settings, "mo_tv_naming_format", "")
-	p.categoryRules = rules.ParseCategoryRules(strSetting(p.settings, "mo_category_map", ""))
+	p.enh = enhance.NewFromSettings(p.settings)
 }
 
-// namingTplFor 按媒体类型返回 MoviePilot 式完整路径命名模板（未配置返回空）。
-func (p *Planner) namingTplFor(isTV bool) string {
-	if isTV {
-		return p.tvNamingTpl
-	}
-	return p.movieNamingTpl
-}
-
-// resolveNamingParts 渲染 MoviePilot 式完整路径模板，拆分为目录段和文件名段。
-// ext 为不含点的扩展名（如 mkv），会映射到模板的 fileExt 变量。
-func (p *Planner) resolveNamingParts(isTV bool, parsed rules.ParsedMedia, enTitle, tmdbID, ext, originalName string) (dirs []string, filename string, ok bool) {
-	tpl := p.namingTplFor(isTV)
-	if strings.TrimSpace(tpl) == "" {
-		return nil, "", false
-	}
-	ctx := rules.TemplateContext{}
-	ctx.FromParsedMedia(parsed, enTitle, tmdbID)
-	if ext != "" {
-		ctx.FileExt = "." + ext
-	}
-	ctx.OriginalName = originalName
-	out, err := rules.RenderTemplate(tpl, ctx)
-	if err != nil {
-		return nil, "", false
-	}
-	out = strings.TrimSpace(out)
-	if out == "" {
-		return nil, "", false
-	}
-	parts := strings.Split(out, "/")
-	if len(parts) == 0 {
-		return nil, "", false
-	}
-	return parts[:len(parts)-1], parts[len(parts)-1], true
-}
-
-// seasonFolderName 季目录名：优先用 TV 全局模板渲染结果的目录段第二段（如 "Season 1"），
+// seasonFolderName 季目录名：增强开启时优先用 TV 全局模板渲染结果的目录段第二段（如 "Season 1"），
 // 否则用任务级季目录模板。
 func (p *Planner) seasonFolderName(season *int) string {
-	if strings.TrimSpace(p.tvNamingTpl) != "" && season != nil {
-		parsed := rules.ParsedMedia{Season: season}
-		if dirs, _, ok := p.resolveNamingParts(true, parsed, "", "", "", ""); ok && len(dirs) > 1 {
-			name := rules.SanitizeFilename(dirs[1])
-			if name != "" {
-				return name
-			}
+	if p.enh != nil {
+		if name := p.enh.SeasonFolderName(season, p.seasonFolderTpl); name != "" {
+			return name
 		}
 	}
 	return rules.BuildSeasonFolderNameTpl(season, "", p.seasonFolderTpl)

@@ -1256,7 +1256,7 @@ func TestMovePlanSkipsAlreadyOrganizedTVFileWhenTargetExists(t *testing.T) {
 			UseTMDB:           true,
 			Recursive:         true,
 		},
-		planner.Settings{"mo_tmdb_api_key": "test-key", "mo_overwrite_existing": false},
+		planner.Settings{"mo_tmdb_api_key": "test-key", "mo_overwrite_existing": false, "mo_enhanced_enabled": true},
 		"task-test",
 		&mockTMDB{
 			lookupFn: func(id string) map[string]any {
@@ -1319,7 +1319,7 @@ func TestMovePlanMarksOverwriteTargetWhenTargetExists(t *testing.T) {
 			UseTMDB:           true,
 			Recursive:         true,
 		},
-		planner.Settings{"mo_tmdb_api_key": "test-key", "mo_overwrite_existing": true},
+		planner.Settings{"mo_tmdb_api_key": "test-key", "mo_overwrite_existing": true, "mo_enhanced_enabled": true},
 		"task-test",
 		&mockTMDB{
 			lookupFn: func(id string) map[string]any {
