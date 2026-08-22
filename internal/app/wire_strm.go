@@ -1,6 +1,7 @@
 package app
 
 import (
+	"litepan/internal/cache"
 	"litepan/internal/eventbus"
 	"litepan/internal/file"
 	"litepan/internal/logx"
@@ -8,7 +9,7 @@ import (
 	"litepan/internal/strm"
 )
 
-func wireSTRM(st *storeBundle, files *file.Service, playback *playback.Service, bus *eventbus.Bus, logs *logx.Manager, dataDir, strmDir, listenAddr string, secret []byte) (*strm.Service, *strm.Coordinator) {
+func wireSTRM(st *storeBundle, files *file.Service, playback *playback.Service, cacheSvc *cache.Service, bus *eventbus.Bus, logs *logx.Manager, dataDir, strmDir, listenAddr string, secret []byte) (*strm.Service, *strm.Coordinator) {
 	svc := strm.NewService(strm.ServiceOptions{
 		Repo:       st.store.StrmTasks,
 		Branches:   st.store.StrmBranches,
@@ -16,6 +17,7 @@ func wireSTRM(st *storeBundle, files *file.Service, playback *playback.Service, 
 		Files:      files,
 		Playback:   playback,
 		Settings:   st.settings,
+		Cache:      cacheSvc,
 		DataDir:    dataDir,
 		StrmDir:    strmDir,
 		ListenAddr: listenAddr,

@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"litepan/internal/cache"
 	"litepan/internal/domain"
 	"litepan/internal/eventbus"
 	"litepan/internal/file"
@@ -34,6 +35,7 @@ type Service struct {
 	files      *file.Service
 	playback   *playback.Service
 	settings   *settings.Service
+	cache      *cache.Service
 	dataDir    string
 	strmDir    string
 	listenAddr string
@@ -64,6 +66,7 @@ type ServiceOptions struct {
 	Files      *file.Service
 	Playback   *playback.Service
 	Settings   *settings.Service
+	Cache      *cache.Service
 	DataDir    string
 	StrmDir    string
 	ListenAddr string
@@ -88,6 +91,7 @@ func NewService(opts ServiceOptions) *Service {
 		files:           opts.Files,
 		playback:        opts.Playback,
 		settings:        opts.Settings,
+		cache:           opts.Cache,
 		dataDir:         opts.DataDir,
 		strmDir:         strmDir,
 		listenAddr:      opts.ListenAddr,
@@ -753,4 +757,15 @@ func branchRelativePath(taskPath, branchPath string) string {
 		return strings.TrimPrefix(branchPath, prefix)
 	}
 	return ""
+}
+
+// invalidateWebDAVCaches strm 任务生成的文件由 os.WriteFile 直写文件系统，
+// 不经过 file.Service 事件总线，WebDAV 目录/PROPFIND 缓存无法感知新文件；
+// 任务成功后主动失效该账号的 WebDAV 缓存与 strm 根目录缓存，保证客户端立即可见。
+func (s *Service) invalidateWebDAVCaches(task *domain.StrmTask) {
+	if s == nil || s.cache == nil || task == nil {
+		return
+	}
+	cache.InvalidateWebDAVAccountCaches(s.cache, task.AccountID)
+	cache.InvalidateDirKeys(s.cache, task.AccountID, task.ParentID)
 }

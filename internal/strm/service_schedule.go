@@ -196,6 +196,10 @@ func (s *Service) runTaskAsync(task *domain.StrmTask) {
 				"removed", result.RemovedCount,
 				"failures", len(result.Failures),
 			)
+			// strm 文件由 os.WriteFile 直写文件系统，不经过 file.Service 事件总线，
+			// WebDAV 目录/PROPFIND 缓存无法感知新文件；任务成功后主动失效缓存，
+			// 避免客户端最长 30 分钟（cache_ttl）看不到新 strm。
+			s.invalidateWebDAVCaches(task)
 		}
 		if err := s.finalizeScanPersist(task.ID, patch); err != nil {
 			s.log.Warn("strm update scan failed", "task_id", task.ID, "err", err)
