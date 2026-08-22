@@ -329,8 +329,6 @@ func NewRouter(d Deps) http.Handler {
 					r.Get("/settings", h.getMediaOrganizeSettings)
 					r.Put("/settings", h.updateMediaOrganizeSettings)
 					r.Get("/guess-file", h.guessMediaOrganizeFile)
-					r.Post("/test-tmdb", h.testMediaOrganizeTMDB)
-					r.Post("/test-template", h.testMediaOrganizeTemplate)
 					r.Get("/search-tmdb", h.searchMediaOrganizeTMDB)
 					r.Post("/tasks/{id}/bindings", h.setMediaOrganizeBinding)
 				})

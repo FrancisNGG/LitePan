@@ -534,7 +534,7 @@ type testTemplateResult struct {
 	Parsed   any    `json:"parsed"`
 }
 
-// testMediaOrganizeTemplate 用示例媒体数据渲染三个整理模板，供前端测试 Jinja2 语法。
+// testMediaOrganizeTemplate 用示例媒体数据渲染电影/电视剧命名模板，供前端测试 Jinja2 语法。
 func (h *Handler) testMediaOrganizeTemplate(w http.ResponseWriter, r *http.Request) {
 	if !ensureServiceReady(w, h.mediaOrganize != nil) {
 		return

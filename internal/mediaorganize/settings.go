@@ -28,6 +28,7 @@ var moSettingFieldToKey = map[string]string{
 	"tv_naming_format":         settings.KeyMOTVNamingFormat,
 	"category_map":             settings.KeyMOCategoryMap,
 	"release_groups":           settings.KeyMOReleaseGroups,
+	"enhanced_enabled":         settings.KeyMOEnhancedEnabled,
 	"max_works_per_run":        settings.KeyMOMaxWorksPerRun,
 	"overwrite_existing":       settings.KeyMOOverwriteExisting,
 }
@@ -44,7 +45,7 @@ func SettingsDict(svc *settings.Service) map[string]any {
 	out := make(map[string]any, len(moSettingFieldToKey))
 	for field, key := range moSettingFieldToKey {
 		switch field {
-		case "proxy_enabled", "align_media_tags", "overwrite_existing":
+		case "proxy_enabled", "align_media_tags", "overwrite_existing", "enhanced_enabled":
 			out[field] = svc.Bool(key)
 		case "api_request_interval_ms", "tmdb_request_interval_ms", "max_works_per_run":
 			out[field] = svc.Int(key)

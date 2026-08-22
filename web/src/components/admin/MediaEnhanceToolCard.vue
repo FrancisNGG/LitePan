@@ -119,8 +119,8 @@ async function testTemplates() {
   tplResult.value = null;
   try {
     tplResult.value = await testMediaOrganizeTemplates({
-      movie_naming_template: settings.value.movie_naming_format ?? "",
-      tv_naming_template: settings.value.tv_naming_format ?? "",
+      movie_naming_template: settings.value.movie_naming_format,
+      tv_naming_template: settings.value.tv_naming_format,
       filename: tplTestFile.value,
     });
   } catch (e) {
@@ -137,11 +137,11 @@ async function testTemplates() {
       :enabled="status.enabled"
       name="媒体整理增强"
       driver="作用于媒体整理任务 · 命名模板 + 自动分类"
-      logo-text="增"
+      logo-src="/logos/media-organize.svg"
       logo-alt="媒体整理增强"
       :tags="[
+        { label: '参考 MoviePilot 整理模块' },
         { label: '实验性', variant: 'warn' },
-        { label: '参考主流媒体整理工具' },
       ]"
     >
       <template #toggle>
@@ -167,7 +167,7 @@ async function testTemplates() {
         </button>
       </template>
       开启后，媒体整理任务可使用 Jinja2 命名模板（渲染完整路径，自动拆分作品目录/季目录/文件名）与 TMDB 自动分类。
-      关闭时媒体整理保持官方默认行为。模板语法参考主流媒体整理工具。
+      关闭时媒体整理保持官方默认行为。模板语法参考 MoviePilot 整理模块。
       <template #actions>
         <AppButton variant="secondary" :disabled="configSaving" @click="openConfig">
           配置与测试
@@ -251,9 +251,6 @@ async function testTemplates() {
           </SettingsCard>
 
           <SettingsCard title="模板测试（Jinja2）">
-            <template #head-aside>
-              <span class="me-tip" v-text="'支持 {{{{ title }}}} / {{% if %}} / en_title 等变量'"></span>
-            </template>
             <SettingsRow>
               <template #info>
                 <div class="settings-row__label">
@@ -308,6 +305,40 @@ async function testTemplates() {
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+.check-toggle {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 0;
+  padding: 0;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  background: var(--border);
+  color: var(--text-muted);
+  transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+}
+.check-toggle svg {
+  width: 14px;
+  height: 14px;
+}
+.check-toggle:hover {
+  background: var(--surface-hover);
+}
+.check-toggle.on {
+  background: var(--success);
+  color: #fff;
+  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.16);
+}
+.check-toggle.on:hover {
+  background: color-mix(in srgb, var(--success) 88%, #000);
+}
+.check-toggle:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 .me-tip {
   font-size: 12px;
