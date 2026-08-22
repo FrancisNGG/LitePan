@@ -227,7 +227,8 @@ defineExpose(
         <SettingsRow :show-changed-badge="true" :changed="isSettingChanged('base_url')">
           <template #info>
             <div class="settings-row__label">
-              <span>对外基址</span>              <SettingsHelpTooltip title="对外基址说明">
+              <span>对外基址</span>
+              <SettingsHelpTooltip title="对外基址说明">
                 <p>生成 .strm 内完整 URL 时使用，例如 https://pan.example.com。留空则使用当前服务地址。</p>
                 <p>右侧「一键替换」会批量改写已有 .strm 文件里的站点部分，并保存此基址。</p>
               </SettingsHelpTooltip>
