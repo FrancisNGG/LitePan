@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/subtle"
 	"encoding/base64"
+	"encoding/json"
 	"log/slog"
 	"path/filepath"
 	"strings"
@@ -32,6 +33,7 @@ type Service struct {
 	repo       domain.StrmTaskRepository
 	branches   domain.StrmBranchRepository
 	dirCache   domain.StrmDirCacheRepository
+	accounts   domain.AccountRepository
 	files      *file.Service
 	playback   *playback.Service
 	settings   *settings.Service
@@ -63,6 +65,7 @@ type ServiceOptions struct {
 	Repo       domain.StrmTaskRepository
 	Branches   domain.StrmBranchRepository
 	DirCache   domain.StrmDirCacheRepository
+	Accounts   domain.AccountRepository
 	Files      *file.Service
 	Playback   *playback.Service
 	Settings   *settings.Service
@@ -88,6 +91,7 @@ func NewService(opts ServiceOptions) *Service {
 		repo:            opts.Repo,
 		branches:        opts.Branches,
 		dirCache:        opts.DirCache,
+		accounts:        opts.Accounts,
 		files:           opts.Files,
 		playback:        opts.Playback,
 		settings:        opts.Settings,
@@ -761,15 +765,37 @@ func branchRelativePath(taskPath, branchPath string) string {
 
 // invalidateWebDAVCaches strm 任务生成的文件由 os.WriteFile 直写文件系统，
 // 不经过 file.Service 事件总线，WebDAV 目录/PROPFIND 缓存无法感知新文件；
-// 任务成功后主动失效该账号全部缓存，保证客户端立即可见。
+// 任务成功后主动失效缓存，保证客户端立即可见。
 //
-// 注意：失效范围必须是「整个账号」而不是 task.ParentID 单目录——
-// strm 文件按媒体分类实际生成在任务根目录的任意子目录里，WebDAV/首页
-// 浏览的目录与 task.ParentID 不一定相同；只清单目录会漏掉实际浏览目录
-// 的 DirKey，导致缓存命中旧数据（v0.5.1.6 实测失败根因）。
-func (s *Service) invalidateWebDAVCaches(task *domain.StrmTask) {
+// 失效对象是「localfs 账号」而非任务网盘账号：strm 任务扫描的是网盘账号
+// （如 115），但 strm 文件实际写到 strmDir（/app/strm），用户 WebDAV 挂载
+// 浏览的是 root_path 指向 strmDir 的 localfs 账号，缓存键挂在 localfs 账号
+// 名下。按 root_path 匹配（不依赖账号名/ID，以 localfs 挂载时配置为准），
+// 失效其全部缓存。任务粒度：一次任务完成后统一失效一次。
+func (s *Service) invalidateWebDAVCaches(ctx context.Context, task *domain.StrmTask) {
 	if s == nil || s.cache == nil || task == nil {
 		return
 	}
-	s.cache.InvalidateAccount(task.AccountID)
+	if s.accounts == nil {
+		return
+	}
+	accs, err := s.accounts.List(ctx)
+	if err != nil {
+		return
+	}
+	strmRoot := filepath.Clean(s.strmDir)
+	for _, acc := range accs {
+		if acc.DriverType != "localfs" {
+			continue
+		}
+		var cfg struct {
+			RootPath string `json:"root_path"`
+		}
+		if json.Unmarshal([]byte(acc.Config), &cfg) != nil {
+			continue
+		}
+		if cfg.RootPath != "" && filepath.Clean(cfg.RootPath) == strmRoot {
+			s.cache.InvalidateAccount(acc.ID)
+		}
+	}
 }
