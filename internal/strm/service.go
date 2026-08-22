@@ -761,11 +761,15 @@ func branchRelativePath(taskPath, branchPath string) string {
 
 // invalidateWebDAVCaches strm 任务生成的文件由 os.WriteFile 直写文件系统，
 // 不经过 file.Service 事件总线，WebDAV 目录/PROPFIND 缓存无法感知新文件；
-// 任务成功后主动失效该账号的 WebDAV 缓存与 strm 根目录缓存，保证客户端立即可见。
+// 任务成功后主动失效该账号全部缓存，保证客户端立即可见。
+//
+// 注意：失效范围必须是「整个账号」而不是 task.ParentID 单目录——
+// strm 文件按媒体分类实际生成在任务根目录的任意子目录里，WebDAV/首页
+// 浏览的目录与 task.ParentID 不一定相同；只清单目录会漏掉实际浏览目录
+// 的 DirKey，导致缓存命中旧数据（v0.5.1.6 实测失败根因）。
 func (s *Service) invalidateWebDAVCaches(task *domain.StrmTask) {
 	if s == nil || s.cache == nil || task == nil {
 		return
 	}
-	cache.InvalidateWebDAVAccountCaches(s.cache, task.AccountID)
-	cache.InvalidateDirKeys(s.cache, task.AccountID, task.ParentID)
+	s.cache.InvalidateAccount(task.AccountID)
 }
