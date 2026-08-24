@@ -5,14 +5,12 @@ import (
 	"crypto/rand"
 	"crypto/subtle"
 	"encoding/base64"
-	"encoding/json"
 	"log/slog"
 	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 
-	"litepan/internal/cache"
 	"litepan/internal/domain"
 	"litepan/internal/eventbus"
 	"litepan/internal/file"
@@ -33,11 +31,9 @@ type Service struct {
 	repo       domain.StrmTaskRepository
 	branches   domain.StrmBranchRepository
 	dirCache   domain.StrmDirCacheRepository
-	accounts   domain.AccountRepository
 	files      *file.Service
 	playback   *playback.Service
 	settings   *settings.Service
-	cache      *cache.Service
 	dataDir    string
 	strmDir    string
 	listenAddr string
@@ -65,11 +61,9 @@ type ServiceOptions struct {
 	Repo       domain.StrmTaskRepository
 	Branches   domain.StrmBranchRepository
 	DirCache   domain.StrmDirCacheRepository
-	Accounts   domain.AccountRepository
 	Files      *file.Service
 	Playback   *playback.Service
 	Settings   *settings.Service
-	Cache      *cache.Service
 	DataDir    string
 	StrmDir    string
 	ListenAddr string
@@ -91,11 +85,9 @@ func NewService(opts ServiceOptions) *Service {
 		repo:            opts.Repo,
 		branches:        opts.Branches,
 		dirCache:        opts.DirCache,
-		accounts:        opts.Accounts,
 		files:           opts.Files,
 		playback:        opts.Playback,
 		settings:        opts.Settings,
-		cache:           opts.Cache,
 		dataDir:         opts.DataDir,
 		strmDir:         strmDir,
 		listenAddr:      opts.ListenAddr,
@@ -761,41 +753,4 @@ func branchRelativePath(taskPath, branchPath string) string {
 		return strings.TrimPrefix(branchPath, prefix)
 	}
 	return ""
-}
-
-// invalidateWebDAVCaches strm 任务生成的文件由 os.WriteFile 直写文件系统，
-// 不经过 file.Service 事件总线，WebDAV 目录/PROPFIND 缓存无法感知新文件；
-// 任务成功后主动失效缓存，保证客户端立即可见。
-//
-// 失效对象是「localfs 账号」而非任务网盘账号：strm 任务扫描的是网盘账号
-// （如 115），但 strm 文件实际写到 strmDir（/app/strm），用户 WebDAV 挂载
-// 浏览的是 root_path 指向 strmDir 的 localfs 账号，缓存键挂在 localfs 账号
-// 名下。按 root_path 匹配（不依赖账号名/ID，以 localfs 挂载时配置为准），
-// 失效其全部缓存。任务粒度：一次任务完成后统一失效一次。
-func (s *Service) invalidateWebDAVCaches(ctx context.Context, task *domain.StrmTask) {
-	if s == nil || s.cache == nil || task == nil {
-		return
-	}
-	if s.accounts == nil {
-		return
-	}
-	accs, err := s.accounts.List(ctx)
-	if err != nil {
-		return
-	}
-	strmRoot := filepath.Clean(s.strmDir)
-	for _, acc := range accs {
-		if acc.DriverType != "localfs" {
-			continue
-		}
-		var cfg struct {
-			RootPath string `json:"root_path"`
-		}
-		if json.Unmarshal([]byte(acc.Config), &cfg) != nil {
-			continue
-		}
-		if cfg.RootPath != "" && filepath.Clean(cfg.RootPath) == strmRoot {
-			s.cache.InvalidateAccount(acc.ID)
-		}
-	}
 }

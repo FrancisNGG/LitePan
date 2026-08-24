@@ -55,8 +55,11 @@ func wireServices(cfg config.Config, logs *logx.Manager, st *storeBundle, core *
 	fileSvc := file.NewService(core.exec, core.cache, st.store.Accounts, core.bus, st.settings, core.listHits)
 	fileSvc.SetLogger(logs.For(logx.ModuleFileOp))
 	playbackSvc := playback.NewService(core.exec, core.cache)
-	strmSvc, coord := wireSTRM(st, fileSvc, playbackSvc, core.cache, core.bus, logs, cfg.DataDir, cfg.StrmDir, cfg.ListenAddr, core.secret)
+	strmSvc, coord := wireSTRM(st, fileSvc, playbackSvc, core.bus, logs, cfg.DataDir, cfg.StrmDir, cfg.ListenAddr, core.secret)
 	core.strm = coord
+	// STRM 任务完成后失效指向 strmDir 的 localfs 账号缓存（WebDAV 立即可见），
+	// 失效逻辑在 app 层实现，strm 模块不感知账号/缓存细节。
+	registerStrmWebDAVInvalidation(core.bus, st.store.Accounts, core.cache, cfg.StrmDir, logs.For(logx.ModuleSystem))
 	retentionSvc, retentionCoord := wireCacheRetention(st, fileSvc, core.cache, core.bus, logs)
 	aiOrganizeSvc := aiorganize.New(st.settings)
 	mediaOrganizeSvc := wireMediaOrganize(st, fileSvc, logs, cfg.DataDir, aiOrganizeSvc)

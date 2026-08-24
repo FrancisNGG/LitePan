@@ -70,54 +70,39 @@ func (p *Planner) resolveTargetParentForMove(workDirRef string, isTV bool, seaso
 	return seasonRef, deps
 }
 
-func (p *Planner) ensureWorkDirAction(key groupKey, workDirName string, items []batchEntry, promotedMoveRef string, categoryName string, isTV bool) string {
+func (p *Planner) ensureWorkDirAction(key groupKey, workDirName string, items []batchEntry, promotedMoveRef string) string {
 	if p.actionType != "move" || workDirName == "" {
 		return ""
 	}
 	if promotedMoveRef != "" {
 		return promotedMoveRef
 	}
-	var parentRef string
-	if p.enh == nil {
-		// 增强关闭（默认）：官方逻辑——按源目录祖先链构建分类父目录
-		categoryAncestors := p.categoryAncestors(key, items)
-		parentRef = p.buildTargetCategoryParentRef(categoryAncestors)
-	} else {
-		// 增强开启：类型目录 + 分类目录
-		// 一级类型目录（get_dest_dir：need_type_folder 且未手动指定媒体类型时）
-		// 媒体库根/电影/... 或 媒体库根/电视剧/...
-		parentRef = p.targetRootID
-		if parentRef == "" {
-			parentRef = p.parentID
-		}
-		typeFolder := "电影"
-		if isTV {
-			typeFolder = "电视剧"
-		}
-		parentRef = p.ensureDirAction(parentRef, typeFolder)
-		// 二级分类目录（category 匹配结果，如 华语电影/国产剧）
-		if strings.TrimSpace(categoryName) != "" {
-			parentRef = p.ensureDirAction(parentRef, categoryName)
-		}
-	}
+	categoryAncestors := p.categoryAncestors(key, items)
+	parentRef := p.buildTargetCategoryParentRef(categoryAncestors)
 	ref := p.ensureDirAction(parentRef, workDirName)
-	srcDirID := key.dirID
-	if strings.HasPrefix(ref, "ref:") {
-		for i := range p.actions {
-			a := &p.actions[i]
-			if a.ID == ref[4:] {
-				if a.Metadata == nil {
-					a.Metadata = map[string]any{}
-				}
-				a.Metadata["is_work_dir"] = true
-				if srcDirID != "" && srcDirID != p.parentID {
-					a.Metadata["source_dir_id"] = srcDirID
-				}
-				break
+	p.markWorkDirAction(ref, key.dirID)
+	return ref
+}
+
+// markWorkDirAction 给目录动作打上 work dir 标识（is_work_dir / source_dir_id）。
+// 供 ensureWorkDirAction（官方逻辑）与增强分支（类型/分类目录决策在调用方）共用。
+func (p *Planner) markWorkDirAction(ref, srcDirID string) {
+	if !strings.HasPrefix(ref, "ref:") {
+		return
+	}
+	for i := range p.actions {
+		a := &p.actions[i]
+		if a.ID == ref[4:] {
+			if a.Metadata == nil {
+				a.Metadata = map[string]any{}
 			}
+			a.Metadata["is_work_dir"] = true
+			if srcDirID != "" && srcDirID != p.parentID {
+				a.Metadata["source_dir_id"] = srcDirID
+			}
+			break
 		}
 	}
-	return ref
 }
 
 func (p *Planner) categoryAncestors(key groupKey, items []batchEntry) []rules.Ancestor {

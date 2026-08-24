@@ -49,3 +49,13 @@ type NotificationCreated struct {
 	AccountID int64
 	RefID     int64
 }
+
+// StrmScanCompleted STRM 任务成功完成。strm 文件由 os.WriteFile 直写文件系统，
+// 不经过 file.Service 事件总线，WebDAV 缓存无法感知；订阅者（app 层）据此
+// 失效指向 strmDir 的 localfs 账号缓存，保证客户端立即可见。
+// 发布者（strm）不感知订阅者，也不感知账号/缓存细节。
+type StrmScanCompleted struct {
+	TaskID    int64
+	AccountID int64
+	StrmDir   string
+}

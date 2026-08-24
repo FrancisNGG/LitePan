@@ -130,6 +130,20 @@ func applyRuleFields(rule *CategoryRule, m map[string]json.RawMessage) {
 	rule.ReleaseYear = get("release_year")
 }
 
+// UnsupportedConditions 返回配置中「永不生效」的条件说明（供调用方打诊断日志）。
+// 目前唯一已知场景：电影分类的 production_countries——TMDB /search/movie 结果
+// 不含该字段（仅 /movie/{id} 详情有），搜索匹配阶段无法命中；电视剧的
+// origin_country 在 /search/tv 中自带，不受影响。
+func (c CategoryRules) UnsupportedConditions() []string {
+	var out []string
+	for i, r := range c.Movie {
+		if v := strings.TrimSpace(r.ProductionCountries); v != "" {
+			out = append(out, fmt.Sprintf("movie[%d].production_countries=%q：/search/movie 结果无此字段，该条件不会命中（仅支持 genre_ids/original_language/release_year）", i, v))
+		}
+	}
+	return out
+}
+
 // MatchCategory 根据 TMDB 原始数据匹配分类（逻辑与 MoviePilot get_category 一致）。
 // 未配置规则或未命中时返回空（不分类）。
 func (c CategoryRules) MatchCategory(isTV bool, tmdbInfo map[string]any) string {

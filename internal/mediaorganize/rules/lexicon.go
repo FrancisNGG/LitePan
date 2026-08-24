@@ -1,6 +1,9 @@
 package rules
 
-import "strings"
+import (
+	"strings"
+	"sync/atomic"
+)
 
 const (
 	DefaultMediaExtensions    = "mkv;mp4;avi;ts;mov;wmv;iso;m2ts;rmvb;flv;m4v;webm"
@@ -58,36 +61,50 @@ var KnownReleaseGroups = map[string]struct{}{
 	"SHARKWEB": {}, "PiGoNF": {}, "AilMWeb": {},
 }
 
-var knownReleaseGroupsCI map[string]struct{}
+// ReleaseGroups 不可变的制作组表（内置 + 用户自定义），构建后只读，可无锁并发读取。
+type ReleaseGroups struct {
+	table map[string]struct{}
+}
+
+// 当前生效的制作组表。写入方先完整构建新表再整体交换（atomic），
+// 读取方永远看到完整一致的快照，不存在"半空表"窗口，也无 map 并发读写竞争。
+var releaseGroupsPtr atomic.Pointer[ReleaseGroups]
 
 var resolutionLikeNumbers = map[int]struct{}{
 	360: {}, 480: {}, 540: {}, 576: {}, 720: {}, 1080: {}, 1440: {}, 2160: {}, 4320: {},
 }
 
 func init() {
-	knownReleaseGroupsCI = make(map[string]struct{}, len(KnownReleaseGroups))
-	for g := range KnownReleaseGroups {
-		knownReleaseGroupsCI[toLowerASCII(g)] = struct{}{}
-	}
+	releaseGroupsPtr.Store(buildReleaseGroups(nil))
 }
 
-// SetUserReleaseGroups 合并用户自定义制作组（逗号分隔输入框），
-// 与内置表一起参与识别/剥离。传入 nil 或空串只清空用户组。
-func SetUserReleaseGroups(groups []string) {
-	knownReleaseGroupsCI = make(map[string]struct{}, len(KnownReleaseGroups)+len(groups))
+func buildReleaseGroups(userGroups []string) *ReleaseGroups {
+	t := make(map[string]struct{}, len(KnownReleaseGroups)+len(userGroups))
 	for g := range KnownReleaseGroups {
-		knownReleaseGroupsCI[toLowerASCII(g)] = struct{}{}
+		t[toLowerASCII(g)] = struct{}{}
 	}
-	for _, g := range groups {
+	for _, g := range userGroups {
 		g = strings.TrimSpace(g)
 		if g == "" {
 			continue
 		}
-		knownReleaseGroupsCI[toLowerASCII(g)] = struct{}{}
+		t[toLowerASCII(g)] = struct{}{}
 	}
+	return &ReleaseGroups{table: t}
+}
+
+// ConfigureUserGroups 设置用户自定义制作组（逗号分隔输入框），
+// 与内置表一起参与识别/剥离。传入 nil 或空串只清空用户组。
+// 实现：先构建完整新表再整体原子交换，读取方无锁、无竞争。
+func ConfigureUserGroups(groups []string) {
+	releaseGroupsPtr.Store(buildReleaseGroups(groups))
 }
 
 func isKnownReleaseGroup(s string) bool {
-	_, ok := knownReleaseGroupsCI[toLowerASCII(s)]
+	g := releaseGroupsPtr.Load()
+	if g == nil {
+		return false
+	}
+	_, ok := g.table[toLowerASCII(s)]
 	return ok
 }

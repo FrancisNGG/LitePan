@@ -137,6 +137,11 @@ func (p *Planner) planGroupWithMatch(
 		shortTitle = title
 	}
 	folderInfo := rules.ParsedMedia{Title: shortTitle, Year: year}
+	if isTV && len(items) > 0 && items[0].fileParsed.Season != nil {
+		// 作品目录名的模板渲染需要季数据（模板含 Season 段）；show 级组 key 无季，
+		// 用组内首个文件的季号，让季段正常渲染（作品目录名本身不含季号）。
+		folderInfo.Season = items[0].fileParsed.Season
+	}
 	newFolderName := ""
 	originalName := key.dirName
 	if originalName == "" && len(items) > 0 {
@@ -144,7 +149,23 @@ func (p *Planner) planGroupWithMatch(
 	}
 	if p.enh != nil {
 		if dirs, _, ok := p.enh.ResolveNamingParts(isTV, folderInfo, tmdbOriginal, tmdbID, "", originalName); ok && len(dirs) > 0 {
-			newFolderName = rules.SanitizeFilename(dirs[0])
+			// 作品目录名：第一个季目录段之前的最后一段（作品目录在季段之上）；
+			// 无季段则取最后一段。类型/分类段由增强分支按 MatchCategory 建，
+			// 季目录由 SeasonFolderName 定位，这里只取作品目录名，多级目录模板不截断。
+			seasonIdx := -1
+			for i, d := range dirs {
+				if rules.IsSeasonDirName(d) {
+					seasonIdx = i
+					break
+				}
+			}
+			target := len(dirs) - 1
+			if seasonIdx > 0 {
+				target = seasonIdx - 1
+			}
+			if d := rules.SanitizeFilename(dirs[target]); d != "" {
+				newFolderName = d
+			}
 		}
 	}
 	if newFolderName == "" {
@@ -236,11 +257,30 @@ func (p *Planner) planGroupWithMatch(
 
 	targetWorkRef := ""
 	if p.actionType == "move" {
-		categoryName := ""
 		if p.enh != nil {
-			categoryName = p.enh.MatchCategory(isTV, tmdbInfo.raw)
+			// 增强：目录决策在调用方——类型目录（电影/电视剧）→ 分类目录 → 作品目录。
+			// ensureWorkDirAction 保持官方逻辑（按源目录祖先链构建父目录），增强分支不复用。
+			parentRef := p.targetRootID
+			if parentRef == "" {
+				parentRef = p.parentID
+			}
+			typeFolder := "电影"
+			if isTV {
+				typeFolder = "电视剧"
+			}
+			parentRef = p.ensureDirAction(parentRef, typeFolder)
+			if categoryName := p.enh.MatchCategory(isTV, tmdbInfo.raw); categoryName != "" {
+				parentRef = p.ensureDirAction(parentRef, categoryName)
+			}
+			if promotedMoveRef != "" {
+				targetWorkRef = promotedMoveRef
+			} else {
+				targetWorkRef = p.ensureDirAction(parentRef, newFolderName)
+				p.markWorkDirAction(targetWorkRef, key.dirID)
+			}
+		} else {
+			targetWorkRef = p.ensureWorkDirAction(key, newFolderName, items, promotedMoveRef)
 		}
-		targetWorkRef = p.ensureWorkDirAction(key, newFolderName, items, promotedMoveRef, categoryName, isTV)
 	}
 
 	seasonDirCache := map[int]string{}

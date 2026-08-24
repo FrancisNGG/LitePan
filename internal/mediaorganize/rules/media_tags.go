@@ -119,12 +119,6 @@ func audioCodecRank(codec string) int {
 func enrichParsedMediaTags(name string, p ParsedMedia) ParsedMedia {
 	m := p.ToMap()
 	EnrichMediaTagsFromFilename(name, m)
-	// 统一视频编码形态（guessit/本地扫描可能给出 H.265/HEVC/x265 等不同写法）
-	if raw, ok := m["video_codec"].(string); ok && raw != "" {
-		if norm := NormalizeVideoCodec(raw); norm != "" {
-			m["video_codec"] = norm
-		}
-	}
 	return parsedFromMap(m)
 }
 
@@ -831,12 +825,11 @@ func classifyVideoBitToken(token string) string {
 }
 
 func classifyVideoCodecToken(token string) string {
-	// 归一化：HEVC/H265/H.265 -> x265；AVC/H264/H.264 -> x264（统一形态，避免同编码多种写法导致重复文件）
-	switch strings.ToLower(strings.ReplaceAll(strings.TrimSpace(token), ".", "")) {
-	case "h265", "hevc", "x265":
-		return "x265"
-	case "h264", "avc", "x264":
-		return "x264"
+	switch strings.ToLower(strings.TrimSpace(token)) {
+	case "h.264", "h264", "x264", "avc":
+		return "H.264"
+	case "h.265", "h265", "x265", "hevc":
+		return "H.265"
 	case "av1":
 		return "AV1"
 	case "vp9":
@@ -844,11 +837,6 @@ func classifyVideoCodecToken(token string) string {
 	default:
 		return ""
 	}
-}
-
-// NormalizeVideoCodec 统一视频编码形态（guessit 等外部来源可能给 H.265/HEVC 等写法）
-func NormalizeVideoCodec(codec string) string {
-	return classifyVideoCodecToken(codec)
 }
 
 func classifyAudioCodecToken(token string) (string, int) {

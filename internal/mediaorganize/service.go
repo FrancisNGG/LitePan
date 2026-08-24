@@ -72,7 +72,7 @@ func NewService(opts ServiceOptions) *Service {
 		e = StubExecutor{}
 	}
 	if opts.Settings != nil {
-		rules.SetUserReleaseGroups(splitCommaList(stringFromAny(SettingsDict(opts.Settings)["release_groups"])))
+		rules.ConfigureUserGroups(splitCommaList(stringFromAny(SettingsDict(opts.Settings)["release_groups"])))
 	}
 	return &Service{
 		repo:            opts.Repo,
@@ -936,7 +936,8 @@ func intFromAny(v any, fallback int) int {
 // 用 TMDB 元数据决定媒体类型与分类，避免仅靠文件名误判（如无季标记的韩剧）；
 // TMDB 不可用/未配置时回退本地解析，为空时用示例媒体数据（沙丘 S01E05）。
 func (s *Service) RenderTestTemplates(movieNamingTpl, tvNamingTpl, filename string) (map[string]any, error) {
-	rules.SetUserReleaseGroups(splitCommaList(stringFromAny(SettingsDict(s.settings)["release_groups"])))
+	// 制作组表由 planner 构建计划时统一同步（ConfigureUserGroups），预览端点不再直接改全局，
+	// 保证预览与实际整理使用同一份输入。
 	// 示例媒体：一部电视剧的一集，覆盖主要变量
 	year := 2024
 	season := 1

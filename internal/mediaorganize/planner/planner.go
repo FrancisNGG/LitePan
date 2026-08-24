@@ -174,18 +174,43 @@ func (p *Planner) loadSettings() {
 	if p.seasonFolderTpl == "" {
 		p.seasonFolderTpl = "Season {season:02d}"
 	}
-	p.enh = enhance.NewFromSettings(p.settings)
+	// 同步用户自定义制作组到规则表（不可变原子快照）。planner 是全局唯一同步点：
+	// 每次构建计划时从当前设置重建，预览与实际整理使用同一份输入，且无并发竞争。
+	rules.ConfigureUserGroups(splitCommaListSetting(p.settings["mo_release_groups"]))
+	// 增强开关判断与配置翻译在调用方（planner）完成，enhance 包只接收值对象。
+	if rules.SettingBool(p.settings["mo_enhanced_enabled"], false) {
+		p.enh = enhance.New(enhance.EnhancerConfig{
+			MovieNamingTpl: strSetting(p.settings, "mo_movie_naming_format", ""),
+			TVNamingTpl:    strSetting(p.settings, "mo_tv_naming_format", ""),
+			CategoryRules:  rules.ParseCategoryRules(strSetting(p.settings, "mo_category_map", "")),
+		})
+		for _, msg := range p.enh.CategoryRules().UnsupportedConditions() {
+			p.log("[增强] 分类配置警告：" + msg)
+		}
+	}
 }
 
-// seasonFolderName 季目录名：增强开启时优先用 TV 全局模板渲染结果的目录段第二段（如 "Season 1"），
-// 否则用任务级季目录模板。
+// splitCommaListSetting 逗号分隔设置值 -> 去空白切片（用户自定义制作组）。
+func splitCommaListSetting(v any) []string {
+	var out []string
+	for _, part := range strings.Split(fmt.Sprint(v), ",") {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			out = append(out, part)
+		}
+	}
+	return out
+}
+
+// seasonFolderName 季目录名：增强开启时优先用 TV 全局模板渲染路径中的季段
+// （IsSeasonDirName 识别，不依赖位置），否则用任务级季目录模板（legacy 字符串替换）。
 func (p *Planner) seasonFolderName(season *int) string {
 	if p.enh != nil {
 		if name := p.enh.SeasonFolderName(season, p.seasonFolderTpl); name != "" {
 			return name
 		}
 	}
-	return rules.BuildSeasonFolderNameTpl(season, "", p.seasonFolderTpl)
+	return rules.BuildSeasonFolderName(season, p.seasonFolderTpl)
 }
 
 func extensionSetting(settings Settings, key, taskValue, fallback string) string {
