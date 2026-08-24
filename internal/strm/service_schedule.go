@@ -200,7 +200,9 @@ func (s *Service) runTaskAsync(task *domain.StrmTask) {
 			// strm 文件由 os.WriteFile 直写文件系统，不经过 file.Service 事件总线，
 			// WebDAV 目录/PROPFIND 缓存无法感知新文件。发布领域事件（不感知订阅者），
 			// 由 app 层订阅者失效指向 strmDir 的 localfs 账号缓存，客户端立即可见。
-			s.bus.Publish(ctx, eventbus.StrmScanCompleted{
+			// 注意：事件总线是异步分发，不能携带会被 cancel 的任务 ctx（runCtx），
+			// 否则订阅者稍后执行 accounts.List 时 ctx 已取消 → 缓存失效失败。
+			s.bus.Publish(context.WithoutCancel(ctx), eventbus.StrmScanCompleted{
 				TaskID:    task.ID,
 				AccountID: task.AccountID,
 				StrmDir:   s.strmDir,
