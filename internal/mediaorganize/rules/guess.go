@@ -47,7 +47,7 @@ func guessResultToMap(r gofish.Result) map[string]any {
 		out["source"] = r.Source
 	}
 	if r.VideoCodec != "" {
-		out["video_codec"] = r.VideoCodec
+		out["video_codec"] = normalizeVideoCodec(r.VideoCodec)
 	}
 	if r.AudioCodec != "" {
 		out["audio_codec"] = r.AudioCodec

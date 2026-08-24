@@ -2,27 +2,69 @@ package rules
 
 import "strings"
 
+// preprocessProtectedTokens 保护含点号的复合标记：PreprocessDottedFilename 会把点号
+// 替换成空格，但 H.265 / DTS-HD.MA / DDP5.1 这类标记的点号是语义的一部分，拆成空格
+// 会导致下游 go-fish 识别失败（H.265 → H 265 → video_codec 丢失）。
+// 与 go-fish tokenizer 的 groupedPatterns 占位符机制对齐。
+var preprocessProtectedTokens = []struct {
+	pattern     string // 小写匹配
+	placeholder string
+	restore     string
+}{
+	{"h.264", "\x00LPPH264\x00", "H.264"},
+	{"h.265", "\x00LPPH265\x00", "H.265"},
+	{"dts-hd.ma", "\x00LPPHDTSHDMA\x00", "DTS-HD.MA"},
+	{"ddp5.1", "\x00LPPHDDP51\x00", "DDP5.1"},
+	{"ddp7.1", "\x00LPPHDDP71\x00", "DDP7.1"},
+	{"ddp2.0", "\x00LPPHDDP20\x00", "DDP2.0"},
+	{"dd5.1", "\x00LPPHDD51\x00", "DD5.1"},
+}
+
 func PreprocessDottedFilename(name string) string {
 	if strings.Count(name, ".") < 2 {
 		return name
 	}
-	m := dottedYearRe.FindStringSubmatchIndex(name)
-	var base, ext string
-	if strings.Contains(name, ".") {
-		base, ext = splitStemExt(name)
-	} else {
-		base, ext = name, ""
+	// 1. 保护含点复合标记（大小写不敏感），避免点号被替换成空格后拆坏
+	protected := name
+	lower := strings.ToLower(protected)
+	for _, t := range preprocessProtectedTokens {
+		for {
+			idx := strings.Index(lower, t.pattern)
+			if idx < 0 {
+				break
+			}
+			protected = protected[:idx] + t.placeholder + protected[idx+len(t.pattern):]
+			lower = strings.ToLower(protected)
+		}
 	}
+
+	// 2. 原有逻辑（作用于 protected）
+	m := dottedYearRe.FindStringSubmatchIndex(protected)
+	var base, ext string
+	if strings.Contains(protected, ".") {
+		base, ext = splitStemExt(protected)
+	} else {
+		base, ext = protected, ""
+	}
+	var out string
 	if m == nil {
 		if len(ext) <= 4 {
-			return strings.ReplaceAll(base, ".", " ") + "." + ext
+			out = strings.ReplaceAll(base, ".", " ") + "." + ext
+		} else {
+			out = strings.ReplaceAll(protected, ".", " ")
 		}
-		return strings.ReplaceAll(name, ".", " ")
+	} else {
+		yearPos := m[2]
+		prefix := strings.ReplaceAll(protected[:yearPos], ".", " ")
+		suffix := protected[yearPos:]
+		out = prefix + suffix
 	}
-	yearPos := m[2]
-	prefix := strings.ReplaceAll(name[:yearPos], ".", " ")
-	suffix := name[yearPos:]
-	return prefix + suffix
+
+	// 3. 还原占位符
+	for _, t := range preprocessProtectedTokens {
+		out = strings.ReplaceAll(out, t.placeholder, t.restore)
+	}
+	return out
 }
 
 func StripKnownIDTags(name string) string {

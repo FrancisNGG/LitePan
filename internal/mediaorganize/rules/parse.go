@@ -10,6 +10,10 @@ func NormalizeParsedMedia(parsed ParsedMedia) ParsedMedia {
 	result := clearUnreasonableSeason(parsed)
 	result.Season = asFirstInt(result.Season)
 	result.Episode = asFirstInt(result.Episode)
+	// 视频编码统一显示为 H.264/H.265（go-fish 直出为 x264/x265，此处收口统一）
+	if result.VideoCodec != "" {
+		result.VideoCodec = normalizeVideoCodec(result.VideoCodec)
+	}
 	title := strings.TrimSpace(result.Title)
 	if title != "" && result.Year != nil {
 		yearStr := fmt.Sprintf("%d", *result.Year)
