@@ -54,6 +54,39 @@ func IsEpisodeRangeDirName(name string) bool {
 	return ok
 }
 
+// episodeRangeTokenRe 匹配嵌入在长名中的集数范围标记（如 "Ep01-60"、"E1-60"），
+// 用于识别「红高粱.全集.Red.Sorghum.Ep01-60.2014」这类点分隔长目录名中的范围标记。
+// 与 IsEpisodeRangeDirName 的区别：后者要求整个名字就是范围（"01-60"），前者允许范围嵌在长名中。
+var episodeRangeTokenRe = regexp.MustCompile(`(?i)(?:^|[^a-z0-9])(?:ep|e)\s*(\d{1,4})\s*(?:-|–|—|~|～|至|到)\s*(\d{1,4})(?:$|[^0-9])`)
+
+// HasEmbeddedEpisodeRangeToken 判断名字中是否包含集数范围标记（如 "Ep01-60"）。
+func HasEmbeddedEpisodeRangeToken(name string) bool {
+	if name == "" {
+		return false
+	}
+	for _, m := range episodeRangeTokenRe.FindAllStringSubmatch(name, -1) {
+		if len(m) < 3 {
+			continue
+		}
+		start, err1 := parseInt(m[1])
+		end, err2 := parseInt(m[2])
+		if err1 != nil || err2 != nil || start < 1 || end <= start || end-start > 5000 {
+			continue
+		}
+		// 排除年份范围（如 1999-2003）与分辨率（如 720-1080）
+		if start >= 1800 && start <= 2099 && end >= 1800 && end <= 2099 {
+			continue
+		}
+		if _, ok := resolutionLikeNumbers[start]; ok {
+			if _, ok2 := resolutionLikeNumbers[end]; ok2 {
+				continue
+			}
+		}
+		return true
+	}
+	return false
+}
+
 func AnalyzeEpisodeRangeLayouts(entries []ScanEntry) map[string]EpisodeRangeLayout {
 	type stats struct {
 		rng      EpisodeRange

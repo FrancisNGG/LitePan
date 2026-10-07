@@ -170,6 +170,9 @@ func hasTVHintAncestor(ancestors []Ancestor) bool {
 		if IsSeasonDirName(anc.Name) || IsEpisodeRangeDirName(anc.Name) || isStructuralSpecialDirName(anc.Name) {
 			return true
 		}
+		if HasEmbeddedEpisodeRangeToken(anc.Name) {
+			return true
+		}
 		parsed := NormalizeParsedMedia(ParseDirName(anc.Name))
 		if parsed.Season != nil {
 			return true
